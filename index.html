@@ -84,6 +84,8 @@ canvas{display:block;cursor:crosshair;}
   <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('flights',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ff9070"></div><span style="color:#ff9070">Flights</span></div><span class="lcnt" id="cnt-flights">--</span></label>
   <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('launches',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ff5a3c"></div><span style="color:#ff5a3c">Launches</span></div><span class="lcnt">10</span></label>
   <label class="lrow"><input type="checkbox" class="lcb" onchange="toggleLayer('orbits',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#88ff88;opacity:0.6"></div><span style="color:#88ff88">Orbits</span></div><span class="lcnt">PATH</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('moon',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ccccaa"></div><span style="color:#ccccaa">Moon</span></div><span class="lcnt" id="cnt-moon">LIVE</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('ship',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ff8833"></div><span style="color:#ff8833">Spacecraft</span></div><span class="lcnt">LOOP</span></label>
 </div>
 <div id="iss-panel" class="panel">
   <div style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:#44aaff;margin-bottom:9px;display:flex;align-items:center;gap:7px;"><span class="blink"></span>ISS LIVE</div>
@@ -218,6 +220,226 @@ earthPivot.add(cityMesh);
 // -- Lighting ------------------------------------------------------------------
 scene.add(new THREE.AmbientLight(0x223355,0.6));
 var sun=new THREE.DirectionalLight(0xfff5e4,1.2); sun.position.set(6,2,4); scene.add(sun);
+
+
+// -- Moon ---------------------------------------------------------------------
+// Moon orbits Earth at ~384,400 km. Earth radius = 1 unit = 6371km
+// So Moon distance = 384400/6371 = 60.3 Earth radii
+// We scale for visibility: use 12 units distance (still dramatic)
+var MOON_DIST  = 12.0;        // scene units from Earth centre
+var MOON_SCALE = 0.273;       // Moon is 0.273x Earth radius
+var moonOrbitSpeed = 0.00008; // radians per frame (full orbit ~27 days)
+var moonAngle = 0.0;
+var moonInclination = 5.1 * Math.PI / 180; // 5.1 deg orbital inclination
+
+// Moon texture - procedural crater surface
+var moonCanvas = document.createElement('canvas');
+moonCanvas.width = 512; moonCanvas.height = 256;
+var mCtx = moonCanvas.getContext('2d');
+
+// Base grey surface
+var moonGrad = mCtx.createLinearGradient(0,0,512,256);
+moonGrad.addColorStop(0,   '#5a5a52');
+moonGrad.addColorStop(0.3, '#7a7a70');
+moonGrad.addColorStop(0.5, '#8a8a80');
+moonGrad.addColorStop(0.7, '#6a6a60');
+moonGrad.addColorStop(1,   '#5a5a52');
+mCtx.fillStyle = moonGrad;
+mCtx.fillRect(0,0,512,256);
+
+// Add craters
+var craters = [
+  [120,80,18],[200,60,12],[320,100,22],[400,70,10],[80,140,15],
+  [250,130,28],[350,150,14],[450,120,9],[150,180,16],[300,50,8],
+  [420,180,20],[60,60,11],[180,110,8],[370,80,12],[240,170,10],
+  [100,200,13],[460,50,7],[280,200,18],[130,130,9],[380,200,11],
+  [50,170,8],[220,40,10],[340,170,7],[480,150,8],[160,55,14]
+];
+craters.forEach(function(c){
+  // Outer rim highlight
+  var rg = mCtx.createRadialGradient(c[0],c[1],c[2]*0.3,c[0],c[1],c[2]);
+  rg.addColorStop(0,   'rgba(40,40,35,0.9)');
+  rg.addColorStop(0.7, 'rgba(50,50,45,0.5)');
+  rg.addColorStop(0.85,'rgba(130,130,120,0.6)');
+  rg.addColorStop(1,   'rgba(130,130,120,0)');
+  mCtx.fillStyle = rg;
+  mCtx.beginPath(); mCtx.arc(c[0],c[1],c[2],0,Math.PI*2); mCtx.fill();
+  // Central highlight (ejecta)
+  var cg = mCtx.createRadialGradient(c[0]-c[2]*0.2,c[1]-c[2]*0.2,0,c[0],c[1],c[2]*0.25);
+  cg.addColorStop(0,'rgba(180,180,168,0.6)'); cg.addColorStop(1,'rgba(180,180,168,0)');
+  mCtx.fillStyle=cg; mCtx.beginPath(); mCtx.arc(c[0],c[1],c[2]*0.25,0,Math.PI*2); mCtx.fill();
+});
+// Mare (dark basalt regions)
+var mares = [[280,90,60],[350,110,40],[200,80,35],[180,140,45],[390,140,30]];
+mares.forEach(function(m){
+  var mg=mCtx.createRadialGradient(m[0],m[1],0,m[0],m[1],m[2]);
+  mg.addColorStop(0,'rgba(55,55,48,0.7)'); mg.addColorStop(1,'rgba(55,55,48,0)');
+  mCtx.fillStyle=mg; mCtx.beginPath(); mCtx.arc(m[0],m[1],m[2],0,Math.PI*2); mCtx.fill();
+});
+
+var moonTex = new THREE.CanvasTexture(moonCanvas);
+var moonGeo = new THREE.SphereGeometry(MOON_SCALE, 32, 32);
+var moonMat = new THREE.MeshPhongMaterial({
+  map: moonTex, shininess: 2, specular: new THREE.Color(0x111111)
+});
+var moonMesh = new THREE.Mesh(moonGeo, moonMat);
+scene.add(moonMesh);  // Moon is in world space, not earthPivot
+
+// Moon orbit trail (faint dotted ring)
+var moonOrbitPts = [];
+for (var mi=0; mi<=128; mi++) {
+  var ma = (mi/128)*Math.PI*2;
+  moonOrbitPts.push(new THREE.Vector3(
+    MOON_DIST * Math.cos(ma),
+    MOON_DIST * Math.sin(ma) * Math.sin(moonInclination),
+    MOON_DIST * Math.sin(ma) * Math.cos(moonInclination)
+  ));
+}
+var moonOrbitLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(moonOrbitPts),
+  new THREE.LineBasicMaterial({color:0x444433, transparent:true, opacity:0.3})
+);
+scene.add(moonOrbitLine);
+
+// Moon label indicator (small ring around moon)
+var moonRing = new THREE.Mesh(
+  new THREE.RingGeometry(MOON_SCALE*1.15, MOON_SCALE*1.25, 32),
+  new THREE.MeshBasicMaterial({color:0xccccaa, transparent:true, opacity:0.4, side:THREE.DoubleSide})
+);
+scene.add(moonRing);
+
+// -- Spacecraft (free-return lunar trajectory) ---------------------------------
+// Apollo-style free-return: leaves Earth, loops around Moon, returns
+// Parametric path approximation using a figure-8-like trajectory in 3D
+
+var SHIP_PERIOD = 8.0;  // seconds for one full loop (fast for visual drama)
+var shipAngle   = 0.0;
+
+// Build spacecraft model
+function buildSpacecraft() {
+  var g = new THREE.Group();
+  var silMat  = new THREE.MeshPhongMaterial({color:0xddccaa, shininess:120, emissive:0x221100});
+  var darkMat = new THREE.MeshPhongMaterial({color:0x444433, shininess:60});
+  var goldMat = new THREE.MeshPhongMaterial({color:0xddaa22, shininess:180, emissive:0x221100});
+  var panMat  = new THREE.MeshPhongMaterial({color:0x1133aa, shininess:140, emissive:0x060e44});
+  var thrustMat=new THREE.MeshBasicMaterial({color:0xff6600,transparent:true,opacity:0.8});
+
+  // Command module (cone)
+  var cm = new THREE.Mesh(new THREE.ConeGeometry(0.04,0.09,8), silMat);
+  cm.rotation.z = Math.PI; cm.position.y = 0.06; g.add(cm);
+  // Service module (cylinder)
+  var sm = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.12,10), silMat);
+  sm.position.y = -0.02; g.add(sm);
+  // Engine nozzle
+  var noz = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.035,0.04,10), darkMat);
+  noz.position.y = -0.10; g.add(noz);
+  // Solar panels
+  [-1,1].forEach(function(s){
+    var arm = new THREE.Mesh(new THREE.BoxGeometry(0.001,0.001,0.08), darkMat);
+    arm.position.set(0,-0.02,s*0.06); g.add(arm);
+    var pan = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.001,0.05), panMat);
+    pan.position.set(0,-0.02,s*0.10); g.add(pan);
+    // Panel cells
+    for(var ci=-1;ci<=1;ci++){
+      var cell=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.0013,0.001),new THREE.MeshBasicMaterial({color:0x224488}));
+      cell.position.set(0,-0.02,s*0.10+ci*0.015); g.add(cell);
+    }
+  });
+  // Gold foil insulation
+  var foil = new THREE.Mesh(new THREE.CylinderGeometry(0.041,0.041,0.08,10,1,true), goldMat);
+  foil.position.y = -0.02; g.add(foil);
+  // Engine glow (thruster plume when burning)
+  var plume = new THREE.Mesh(new THREE.ConeGeometry(0.018,0.06,8), thrustMat);
+  plume.position.y = -0.15; plume.userData.isPlume = true; g.add(plume);
+  // Antenna
+  var ant = new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.08,4), darkMat);
+  ant.position.set(0,0.12,0); g.add(ant);
+  var dish = new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.002,12,1,false,0,Math.PI*2), darkMat);
+  dish.position.set(0,0.16,0); g.add(dish);
+
+  g.scale.setScalar(0.18);
+  return g;
+}
+
+var spacecraft = buildSpacecraft();
+scene.add(spacecraft);
+
+// Spacecraft trajectory: parametric free-return path
+// Earth at origin, Moon at (MOON_DIST, 0, 0) at angle 0
+// Trajectory: elliptical path from Earth vicinity, out to Moon distance, 
+// loops behind Moon, returns - classic figure-8 in 3D
+
+function getShipPosition(t) {
+  // t goes 0..1 for one full loop
+  // Phase 1 (0..0.45): outbound from Earth to Moon (ellipse)
+  // Phase 2 (0.45..0.55): loop behind Moon
+  // Phase 3 (0.55..1): return to Earth
+  var moonPos = getMoonPosition(t * SHIP_PERIOD / SHIP_PERIOD); // moon angle at same time
+  var moonX = moonPos.x, moonZ = moonPos.z;
+
+  var angle = t * Math.PI * 2;
+  // Parametric path: elongated ellipse tilted toward moon
+  // Semi-major = MOON_DIST * 0.55, passes close to Moon on far side
+  var a = MOON_DIST * 0.52;  // semi-major
+  var b = MOON_DIST * 0.22;  // semi-minor
+  // Offset centre so Earth is at one focus
+  var cx = a * 0.48;  // centre offset from Earth
+  var x  = cx + a * Math.cos(angle);
+  var z  = b * Math.sin(angle);
+  var y  = Math.sin(angle * 0.5) * 0.8; // slight inclination wobble
+
+  // Near Moon phase: tighten around Moon position
+  var distToMoon = Math.sqrt((x-moonX)*(x-moonX) + z*z);
+  if (distToMoon < MOON_SCALE * 6) {
+    // Lunar orbit insertion - loop around Moon
+    var lunarAngle = (t - 0.44) * Math.PI * 12;
+    x = moonX + MOON_SCALE * 2.2 * Math.cos(lunarAngle);
+    z = moonPos.z + MOON_SCALE * 2.2 * Math.sin(lunarAngle);
+  }
+  return new THREE.Vector3(x, y, z);
+}
+
+function getMoonPosition(frac) {
+  var a = moonAngle + frac * moonOrbitSpeed * 60;
+  return new THREE.Vector3(
+    MOON_DIST * Math.cos(a),
+    MOON_DIST * Math.sin(a) * Math.sin(moonInclination),
+    MOON_DIST * Math.sin(a) * Math.cos(moonInclination)
+  );
+}
+
+// Draw trajectory preview path
+var trajPts = [];
+for (var ti=0; ti<=120; ti++) {
+  trajPts.push(getShipPosition(ti/120));
+}
+var trajLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(trajPts),
+  new THREE.LineBasicMaterial({color:0xff8833, transparent:true, opacity:0.35})
+);
+scene.add(trajLine);
+
+// Engine burn glow point
+var burnGlow = new THREE.PointLight(0xff6600, 0, 0.5);
+scene.add(burnGlow);
+
+// Layer visibility controls
+var moonVisible = true, shipVisible = true;
+var origToggleLayer = window.toggleLayer;
+window.toggleLayer = function(l, v) {
+  if (l === 'moon') {
+    moonVisible = v;
+    moonMesh.visible = v;
+    moonRing.visible = v;
+    moonOrbitLine.visible = v;
+  } else if (l === 'ship') {
+    shipVisible = v;
+    spacecraft.visible = v;
+    trajLine.visible = v;
+  } else {
+    origToggleLayer(l, v);
+  }
+};
 
 // -- Orientation helpers -------------------------------------------------------
 function orientOnSurface(grp,lat,lon,heading){
@@ -496,6 +718,46 @@ function animate(){
   objGroup.rotation.y=rotY;   objGroup.rotation.x=rotX;
   cam.position.z=zoom;
   objGroup.children.forEach(function(o){if(o.userData&&o.userData.isRing){o.material.opacity=0.18+0.18*Math.sin(tick*2.5);o.lookAt(cam.position);}});
+
+  // -- Animate Moon orbit
+  moonAngle += moonOrbitSpeed;
+  var mPos = new THREE.Vector3(
+    MOON_DIST * Math.cos(moonAngle),
+    MOON_DIST * Math.sin(moonAngle) * Math.sin(moonInclination),
+    MOON_DIST * Math.sin(moonAngle) * Math.cos(moonInclination)
+  );
+  moonMesh.position.copy(mPos);
+  moonMesh.rotation.y += 0.0002; // slow self-rotation (tidally locked approx)
+  moonRing.position.copy(mPos);
+  moonRing.lookAt(cam.position);
+  moonRing.material.opacity = 0.25 + 0.15 * Math.sin(tick);
+
+  // -- Animate spacecraft on free-return trajectory
+  shipAngle += 0.004;  // speed of loop
+  var t = (shipAngle % (Math.PI*2)) / (Math.PI*2);
+  var sPos = getShipPosition(t);
+  spacecraft.position.copy(sPos);
+
+  // Point spacecraft toward direction of travel
+  var tNext = ((shipAngle + 0.01) % (Math.PI*2)) / (Math.PI*2);
+  var sPosNext = getShipPosition(tNext);
+  var shipDir = sPosNext.clone().sub(sPos).normalize();
+  if (shipDir.lengthSq() > 0.001) spacecraft.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0), shipDir);
+
+  // Burn glow near Earth departure and Moon
+  var distEarth = sPos.length();
+  var distMoon  = sPos.distanceTo(mPos);
+  var burning = distEarth < 2.5 || distMoon < MOON_SCALE * 4;
+  burnGlow.position.copy(sPos);
+  burnGlow.intensity = burning ? 0.8 + 0.4*Math.sin(tick*8) : 0;
+  // Plume visibility
+  spacecraft.traverse(function(c){ if(c.userData.isPlume) c.visible = burning; });
+
+  // Update trajectory line to follow Moon
+  var pts = [];
+  for (var ti=0; ti<=120; ti++) pts.push(getShipPosition(ti/120));
+  trajLine.geometry.setFromPoints(pts);
+
   // Night side city lights
   var sunDir=new THREE.Vector3(6,2,4).normalize();
   var camDir=new THREE.Vector3(0,0,1).applyQuaternion(cam.quaternion);

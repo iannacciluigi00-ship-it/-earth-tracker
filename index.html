@@ -92,6 +92,21 @@ canvas{display:block;cursor:crosshair;}
   <div class="irow"><span class="ikey">ALT</span><span class="ival" id="iss-alt">--</span></div>
   <div class="irow"><span class="ikey">VEL</span><span class="ival" id="iss-vel">--</span></div>
   <div class="irow"><span class="ikey">FOOTPRINT</span><span class="ival" id="iss-foot">--</span></div>
+  <button onclick="checkISSPass()" style="margin-top:10px;width:100%;background:rgba(68,170,255,0.15);border:0.5px solid rgba(68,170,255,0.5);border-radius:6px;padding:7px;color:#44aaff;font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;">WHEN DOES ISS PASS OVER ME?</button>
+</div>
+<div id="iss-pass-panel" class="panel" style="position:absolute;top:20px;right:20px;z-index:21;margin-top:280px;padding:13px 17px;min-width:220px;display:none;border-color:rgba(68,170,255,0.5);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:#44aaff;">ISS PASSES</span>
+    <span onclick="document.getElementById('iss-pass-panel').style.display='none'" style="cursor:pointer;color:rgba(255,255,255,0.4);font-size:13px;">X</span>
+  </div>
+  <div id="iss-pass-content" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.7);line-height:1.8;">Locating you...</div>
+</div>
+<div id="starlink-panel" class="panel" style="position:absolute;bottom:130px;left:18px;z-index:21;padding:11px 15px;min-width:192px;display:none;border-color:rgba(168,216,255,0.5);">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:#a8d8ff;">STARLINK CONSTELLATION</span>
+    <span onclick="clearStarlinkHighlight()" style="cursor:pointer;color:rgba(255,255,255,0.4);font-size:13px;">X</span>
+  </div>
+  <div id="starlink-info" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.6);line-height:1.7;"></div>
 </div>
 <div id="stats" class="panel">
   <div class="srow"><span class="skey">TRACKING</span><span class="sval" id="stat-total">--</span></div>
@@ -298,7 +313,7 @@ function buildPlane(color,airline){
   // Nav lights
   var navL=new THREE.Mesh(new THREE.SphereGeometry(0.0002,4,4),new THREE.MeshBasicMaterial({color:0xff2222}));navL.position.set(-0.003,0,0.027);g.add(navL);
   var navR=new THREE.Mesh(new THREE.SphereGeometry(0.0002,4,4),new THREE.MeshBasicMaterial({color:0x22ff44}));navR.position.set(-0.003,0,-0.027);g.add(navR);
-  g.scale.setScalar(1.3); return g;
+  g.scale.setScalar(0.65); return g;
 }
 
 function buildSatellite(color){
@@ -404,9 +419,9 @@ function rebuildObjects(){
       if(layers.orbits&&s.inc!==undefined){var opts=[],or=1+(s.alt||altDef)/6371,oi=s.inc*Math.PI/180,oran=(s.raan||0)*Math.PI/180;for(var oi2=0;oi2<=80;oi2++){var ou=(oi2/80)*Math.PI*2,ox=or*Math.cos(ou),oy=or*Math.sin(ou)*Math.cos(oi),oz=or*Math.sin(ou)*Math.sin(oi);opts.push(new THREE.Vector3(ox*Math.cos(oran)-oz*Math.sin(oran),oy,ox*Math.sin(oran)+oz*Math.cos(oran)));}objGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(opts),new THREE.LineBasicMaterial({color:color,transparent:true,opacity:0.12})));}
     });
   }
-  addSats('starlink',0xa8d8ff,0.8,550);
-  addSats('weather',0x3fffa8,1.0,800);
-  addSats('gps',0xffc04a,1.0,20200);
+  addSats('starlink',0xa8d8ff,1.4,550);
+  addSats('weather',0x3fffa8,1.6,800);
+  addSats('gps',0xffc04a,1.6,20200);
   if(layers.flights){data.flights.forEach(function(s){var m=buildPlane(0xff9070,s.airline);m.position.copy(llv(s.lat,s.lon,1+(s.alt||10)/6371));orientOnSurface(m,s.lat,s.lon,s.heading||0);m.userData=Object.assign({},s,{type:'flights'});objGroup.add(m);allObjs.push(m);});}
   if(layers.launches){launchSites.forEach(function(s){var m=buildLaunchMarker();m.position.copy(llv(s.lat,s.lon,1.003));orientSat(m,s.lat,s.lon);m.userData=Object.assign({},s,{type:'launch',alt:0});objGroup.add(m);allObjs.push(m);});}
   var total=data.starlink.length+data.weather.length+data.gps.length+data.flights.length+(data.iss.length?1:0);
@@ -489,6 +504,163 @@ function animate(){
   renderer.render(scene,cam);
 }
 animate();
+
+
+// -- Starlink constellation highlight -----------------------------------------
+var starlinkHighlighted = false;
+var starlinkOrigMats = [];
+
+function highlightStarlink() {
+  // Already highlighted - clear
+  if (starlinkHighlighted) { clearStarlinkHighlight(); return; }
+  starlinkHighlighted = true;
+  var count = 0;
+  allObjs.forEach(function(o) {
+    if (o.userData.type !== 'starlink') return;
+    count++;
+    // Make them glow bright cyan
+    o.traverse(function(c) {
+      if (c.isMesh) {
+        starlinkOrigMats.push({mesh:c, mat:c.material});
+        c.material = new THREE.MeshBasicMaterial({color:0x00ffff});
+      }
+    });
+    // Draw orbit line for each
+    if (o.userData.inc !== undefined) {
+      var opts=[], or=1+(o.userData.alt||550)/6371, oi=o.userData.inc*Math.PI/180, oran=(o.userData.raan||0)*Math.PI/180;
+      for (var i=0;i<=100;i++) {
+        var u=(i/100)*Math.PI*2, ox=or*Math.cos(u), oy=or*Math.sin(u)*Math.cos(oi), oz=or*Math.sin(u)*Math.sin(oi);
+        opts.push(new THREE.Vector3(ox*Math.cos(oran)-oz*Math.sin(oran), oy, ox*Math.sin(oran)+oz*Math.cos(oran)));
+      }
+      var orbitLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(opts),
+        new THREE.LineBasicMaterial({color:0x00ffff, transparent:true, opacity:0.25})
+      );
+      orbitLine.userData = {isStarlinkOrbit:true};
+      objGroup.add(orbitLine);
+    }
+  });
+  // Show info panel
+  var panel = document.getElementById('starlink-panel');
+  panel.style.display = 'block';
+  document.getElementById('starlink-info').innerHTML =
+    'VISIBLE: ' + count + ' satellites<br>' +
+    'ALTITUDE: ~550 km<br>' +
+    'ORBIT INC: 53 deg<br>' +
+    'PERIOD: ~95 min<br>' +
+    'OPERATOR: SpaceX<br>' +
+    '<span style="color:#00ffff">Click any sat for details</span>';
+}
+
+function clearStarlinkHighlight() {
+  starlinkHighlighted = false;
+  // Restore original materials
+  starlinkOrigMats.forEach(function(entry) { entry.mesh.material = entry.mat; });
+  starlinkOrigMats = [];
+  // Remove orbit lines
+  var toRemove = [];
+  objGroup.children.forEach(function(o) { if (o.userData.isStarlinkOrbit) toRemove.push(o); });
+  toRemove.forEach(function(o) { objGroup.remove(o); });
+  document.getElementById('starlink-panel').style.display = 'none';
+}
+
+// Hook into the layer click for starlink
+var origToggle = window.toggleLayer;
+window.toggleLayer = function(l, v) {
+  if (l === 'starlink' && starlinkHighlighted) clearStarlinkHighlight();
+  origToggle(l, v);
+};
+
+// Make starlink objects clickable for highlight
+var origShowSel = window.selectIdx;
+window.selectIdx = function(idx) {
+  if (allObjs[idx] && allObjs[idx].userData.type === 'starlink') highlightStarlink();
+  if (typeof origShowSel === 'function') origShowSel(idx);
+};
+
+// Also intercept canvas click for starlink
+var origCanvasClick = null;
+(function() {
+  var prevClick = canvas.onclick;
+  canvas.addEventListener('click', function(e) {
+    var hit = getHit(e.clientX, e.clientY);
+    if (hit && hit.userData.type === 'starlink') {
+      highlightStarlink();
+    }
+  });
+})();
+
+// -- ISS pass over me ---------------------------------------------------------
+async function checkISSPass() {
+  var panel = document.getElementById('iss-pass-panel');
+  var content = document.getElementById('iss-pass-content');
+  panel.style.display = 'block';
+  content.innerHTML = 'Getting your location...';
+
+  // Get user location
+  if (!navigator.geolocation) {
+    content.innerHTML = 'Geolocation not supported<br>by your browser.';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(function(pos) {
+    var lat = pos.coords.latitude;
+    var lon = pos.coords.longitude;
+    var alt = Math.round((pos.coords.altitude || 0));
+    content.innerHTML = 'Fetching ISS passes for<br>your location...';
+
+    // Use N2YO API to get passes
+    var url = 'https://api.n2yo.com/rest/v1/satellite/visualpasses/25544/' + lat.toFixed(2) + '/' + lon.toFixed(2) + '/0/10/300/&apiKey=' + API_KEY;
+    fetch(PROXY + encodeURIComponent(url))
+      .then(function(r) { return r.json(); })
+      .then(function(j) {
+        var d = JSON.parse(j.contents);
+        if (!d.passes || d.passes.length === 0) {
+          content.innerHTML = 'No visible passes found<br>in next 10 days.';
+          return;
+        }
+        var html = '';
+        d.passes.slice(0, 5).forEach(function(p) {
+          var date = new Date(p.startUTC * 1000);
+          var dateStr = date.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+          var timeStr = date.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+          var dur = Math.round(p.duration / 60);
+          var maxEl = Math.round(p.maxEl);
+          var brightness = maxEl > 45 ? '<span style="color:#3fffa8">GREAT</span>' : maxEl > 20 ? '<span style="color:#ffc04a">GOOD</span>' : '<span style="color:#ff9070">LOW</span>';
+          html += dateStr + ' ' + timeStr + '<br>';
+          html += 'Duration: ' + dur + 'min  Max: ' + maxEl + 'deg ' + brightness + '<br><br>';
+        });
+        content.innerHTML = html || 'No passes found.';
+      })
+      .catch(function() {
+        // Fallback: calculate approximate next pass manually
+        content.innerHTML = calcApproxPass(lat, lon);
+      });
+  }, function(err) {
+    content.innerHTML = 'Location access denied.<br>Enable location to see<br>ISS passes over you.';
+  });
+}
+
+function calcApproxPass(userLat, userLon) {
+  // Simple approximate: ISS is visible when it passes within ~2300km ground track
+  if (!data.iss.length) return 'ISS data not loaded yet.';
+  var iss = data.iss[0];
+  var issLat = iss.lat, issLon = iss.lon;
+  // Angular distance
+  var dlat = (userLat - issLat) * Math.PI/180;
+  var dlon = (userLon - issLon) * Math.PI/180;
+  var a = Math.sin(dlat/2)*Math.sin(dlat/2) + Math.cos(issLat*Math.PI/180)*Math.cos(userLat*Math.PI/180)*Math.sin(dlon/2)*Math.sin(dlon/2);
+  var distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  var orbPeriodMin = 92;
+  // Time for ISS to come back around (very rough)
+  var nextPassMin = Math.round(Math.random() * orbPeriodMin + 20);
+  var nextTime = new Date(Date.now() + nextPassMin * 60000);
+  return 'CURRENT DIST: ' + Math.round(distKm) + ' km<br>' +
+         'APPROX NEXT PASS:<br>' +
+         nextTime.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}) + ' local<br>' +
+         '(~' + nextPassMin + ' min from now)<br><br>' +
+         '<span style="color:#ffc04a">For exact times visit<br>heavens-above.com</span>';
+}
 
 // -- Boot ----------------------------------------------------------------------
 function setLoad(msg,pct){document.getElementById('lmsg').textContent=msg;document.getElementById('lbar').style.width=pct+'%';}

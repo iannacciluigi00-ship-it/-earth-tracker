@@ -64,6 +64,10 @@ canvas{display:block;cursor:crosshair;}
 #lbar-w{width:220px;height:1px;background:rgba(255,255,255,0.1);margin-top:6px;}
 #lbar{height:1px;background:#44aaff;width:0%;transition:width 0.5s;}
 #lmsg{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.25);margin-top:10px;letter-spacing:1px;}
+
+.cam-btn{background:rgba(6,14,28,0.88);border:0.5px solid rgba(80,160,255,0.35);border-radius:6px;padding:6px 12px;color:rgba(255,255,255,0.6);font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all 0.2s;}
+.cam-btn:hover{border-color:rgba(80,160,255,0.7);color:#fff;}
+.active-btn{background:rgba(80,160,255,0.2);border-color:rgba(80,160,255,0.8);color:#fff;}
 </style>
 </head>
 <body>
@@ -75,6 +79,13 @@ canvas{display:block;cursor:crosshair;}
 </div>
 <canvas id="gl"></canvas>
 <div id="brand" class="panel"><div id="brand-title"><span class="blink"></span>ORBIT</div><div id="brand-sub">LIVE EARTH TRACKER</div></div>
+<div id="cam-controls" style="position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:22;display:flex;gap:8px;margin-top:60px;">
+  <button onclick="setCamMode('free')"   id="btn-free"  class="cam-btn active-btn">FREE</button>
+  <button onclick="setCamMode('follow')" id="btn-follow" class="cam-btn">FOLLOW SHIP</button>
+  <button onclick="setCamMode('pov')"    id="btn-pov"    class="cam-btn">SHIP POV</button>
+  <button onclick="setCamMode('moon')"   id="btn-moon"   class="cam-btn">MOON VIEW</button>
+  <button onclick="setCamMode('system')" id="btn-system" class="cam-btn">FULL SYSTEM</button>
+</div>
 <div id="layers" class="panel">
   <div class="ltitle">LAYERS</div>
   <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('iss',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#44aaff"></div><span style="color:#44aaff">ISS</span></div><span class="lcnt" id="cnt-iss">LIVE</span></label>
@@ -226,9 +237,9 @@ var sun=new THREE.DirectionalLight(0xfff5e4,1.2); sun.position.set(6,2,4); scene
 // Moon orbits Earth at ~384,400 km. Earth radius = 1 unit = 6371km
 // So Moon distance = 384400/6371 = 60.3 Earth radii
 // We scale for visibility: use 12 units distance (still dramatic)
-var MOON_DIST  = 12.0;        // scene units from Earth centre
+var MOON_DIST  = 5.5;        // scene units from Earth centre
 var MOON_SCALE = 0.273;       // Moon is 0.273x Earth radius
-var moonOrbitSpeed = 0.00008; // radians per frame (full orbit ~27 days)
+var moonOrbitSpeed = 0.0012;  // radians per frame (sped up for visual)
 var moonAngle = 0.0;
 var moonInclination = 5.1 * Math.PI / 180; // 5.1 deg orbital inclination
 
@@ -702,12 +713,31 @@ canvas.addEventListener('mousemove',function(e){
   else{tt.style.display='none';canvas.style.cursor='crosshair';}
 });
 canvas.addEventListener('click',function(e){var hit=getHit(e.clientX,e.clientY);if(hit)showSel(hit.userData);});
-canvas.addEventListener('wheel',function(e){zoom=Math.max(1.3,Math.min(10,zoom+e.deltaY*0.004));e.preventDefault();},{passive:false});
+canvas.addEventListener('wheel',function(e){zoom=Math.max(1.3,Math.min(20,zoom+e.deltaY*0.006));e.preventDefault();},{passive:false});
 var lastPinch=0;
 canvas.addEventListener('touchstart',function(e){isDrag=true;autoRot=false;if(e.touches.length===1){prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}if(e.touches.length===2)lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);});
-canvas.addEventListener('touchmove',function(e){if(e.touches.length===1&&isDrag){rotY+=(e.touches[0].clientX-prevX)*0.005;rotX=Math.max(-1.4,Math.min(1.4,rotX+(e.touches[0].clientY-prevY)*0.005));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}if(e.touches.length===2){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);zoom=Math.max(1.3,Math.min(10,zoom*(lastPinch/d)));lastPinch=d;}e.preventDefault();},{passive:false});
+canvas.addEventListener('touchmove',function(e){if(e.touches.length===1&&isDrag){rotY+=(e.touches[0].clientX-prevX)*0.005;rotX=Math.max(-1.4,Math.min(1.4,rotX+(e.touches[0].clientY-prevY)*0.005));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}if(e.touches.length===2){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);zoom=Math.max(1.3,Math.min(20,zoom*(lastPinch/d)));lastPinch=d;}e.preventDefault();},{passive:false});
 canvas.addEventListener('touchend',function(){isDrag=false;});
 setInterval(function(){document.getElementById('utc').textContent='UTC  '+new Date().toUTCString().split(' ')[4];},1000);
+
+
+// -- Camera modes -------------------------------------------------------------
+var camMode = 'free';  // free | follow | pov | moon | system
+var camOffset = new THREE.Vector3(0, 0.3, 0.8); // follow offset from ship
+
+function setCamMode(mode) {
+  camMode = mode;
+  // Update button styles
+  ['free','follow','pov','moon','system'].forEach(function(m){
+    var btn = document.getElementById('btn-'+m);
+    if(btn) btn.className = 'cam-btn' + (m===mode?' active-btn':'');
+  });
+  if (mode === 'free') { autoRot = false; }
+  if (mode === 'system') {
+    // Zoom out to see full system
+    zoom = 18;
+  }
+}
 
 // -- Render loop ---------------------------------------------------------------
 var tick=0;
@@ -716,7 +746,42 @@ function animate(){
   if(autoRot) rotY+=0.0012;
   earthPivot.rotation.y=rotY; earthPivot.rotation.x=rotX;
   objGroup.rotation.y=rotY;   objGroup.rotation.x=rotX;
-  cam.position.z=zoom;
+  // Camera mode logic
+  if (camMode === 'free') {
+    cam.position.set(0, 0, zoom);
+    cam.lookAt(0, 0, 0);
+  } else if (camMode === 'follow') {
+    // Chase cam behind spacecraft
+    var shipFwd = new THREE.Vector3(0,0,1).applyQuaternion(spacecraft.quaternion);
+    var shipUp  = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
+    var followPos = spacecraft.position.clone()
+      .sub(shipFwd.clone().multiplyScalar(0.6))
+      .add(shipUp.clone().multiplyScalar(0.25));
+    cam.position.lerp(followPos, 0.08);
+    cam.lookAt(spacecraft.position);
+  } else if (camMode === 'pov') {
+    // First-person from spacecraft nose
+    var shipFwdP = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
+    cam.position.copy(spacecraft.position).add(shipFwdP.multiplyScalar(0.05));
+    // Look toward destination - alternates between Earth and Moon
+    var toEarth = new THREE.Vector3(0,0,0).sub(spacecraft.position).normalize();
+    var toMoon  = moonMesh.position.clone().sub(spacecraft.position).normalize();
+    var distE = spacecraft.position.length();
+    var distM = spacecraft.position.distanceTo(moonMesh.position);
+    cam.lookAt(distE < distM ? new THREE.Vector3(0,0,0) : moonMesh.position);
+  } else if (camMode === 'moon') {
+    // Camera locked to Moon, looking at Earth
+    var moonCamPos = moonMesh.position.clone().add(
+      moonMesh.position.clone().normalize().multiplyScalar(1.2)
+    );
+    cam.position.lerp(moonCamPos, 0.05);
+    cam.lookAt(0, 0, 0);
+  } else if (camMode === 'system') {
+    // Wide view of full Earth-Moon system
+    cam.position.set(0, 3, zoom);
+    cam.lookAt(moonMesh.position.clone().multiplyScalar(0.5));
+  }
+
   objGroup.children.forEach(function(o){if(o.userData&&o.userData.isRing){o.material.opacity=0.18+0.18*Math.sin(tick*2.5);o.lookAt(cam.position);}});
 
   // -- Animate Moon orbit

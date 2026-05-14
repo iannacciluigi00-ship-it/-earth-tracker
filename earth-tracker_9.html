@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORBIT - Live Earth Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;height:100%;overflow:hidden;background:#040810;font-family:'Outfit',sans-serif;}
+canvas{display:block;cursor:crosshair;}
+.panel{background:rgba(6,14,28,0.88);border:0.5px solid rgba(80,160,255,0.18);border-radius:12px;backdrop-filter:blur(14px);}
+#brand{position:absolute;top:18px;left:18px;z-index:20;padding:11px 16px;}
+#brand-title{font-family:'Share Tech Mono',monospace;font-size:20px;letter-spacing:4px;color:#fff;}
+#brand-sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);letter-spacing:2px;margin-top:3px;}
+.blink{display:inline-block;width:7px;height:7px;border-radius:50%;background:#44aaff;margin-right:7px;animation:blink 1.4s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+#layers{position:absolute;top:18px;left:18px;z-index:20;margin-top:86px;padding:13px 15px;min-width:192px;}
+.ltitle{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:rgba(255,255,255,0.35);margin-bottom:9px;}
+.lrow{display:flex;align-items:center;gap:9px;padding:4px 0;cursor:pointer;}
+.lcb{display:none;}
+.ltog{width:28px;height:15px;border-radius:8px;background:rgba(255,255,255,0.1);border:0.5px solid rgba(255,255,255,0.2);position:relative;flex-shrink:0;transition:background 0.2s;}
+.ltog::after{content:'';position:absolute;top:2px;left:2px;width:10px;height:10px;border-radius:50%;background:#fff;transition:transform 0.2s;opacity:0.4;}
+.lcb:checked+.ltog{background:rgba(80,160,255,0.35);}
+.lcb:checked+.ltog::after{transform:translateX(13px);opacity:1;}
+.llabel{font-family:'Share Tech Mono',monospace;font-size:11px;display:flex;align-items:center;gap:6px;}
+.ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.lcnt{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.3);margin-left:auto;}
+#iss-panel{position:absolute;top:18px;right:18px;z-index:20;padding:13px 17px;min-width:200px;border-color:rgba(68,170,255,0.4);}
+.irow{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.ikey{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.38);}
+.ival{font-family:'Share Tech Mono',monospace;font-size:12px;color:#fff;}
+#stats{position:absolute;top:18px;right:18px;z-index:20;margin-top:204px;padding:10px 15px;min-width:200px;}
+.srow{display:flex;justify-content:space-between;padding:2px 0;font-family:'Share Tech Mono',monospace;font-size:11px;}
+.skey{color:rgba(255,255,255,0.38);} .sval{color:#fff;}
+#search-wrap{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:20;width:260px;}
+#search{width:100%;background:rgba(6,14,28,0.92);border:0.5px solid rgba(80,160,255,0.35);border-radius:20px;padding:9px 17px;color:#fff;font-family:'Share Tech Mono',monospace;font-size:11px;outline:none;letter-spacing:1px;}
+#search::placeholder{color:rgba(255,255,255,0.28);}
+#search-res{margin-top:5px;background:rgba(6,14,28,0.97);border:0.5px solid rgba(80,160,255,0.18);border-radius:10px;overflow:hidden;display:none;}
+.sri{padding:8px 15px;font-family:'Share Tech Mono',monospace;font-size:11px;color:rgba(255,255,255,0.85);cursor:pointer;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.sri:hover{background:rgba(80,160,255,0.1);}
+#tt{position:absolute;z-index:30;pointer-events:none;display:none;padding:10px 13px;border-radius:10px;background:rgba(4,10,22,0.96);border:0.5px solid rgba(80,160,255,0.35);min-width:150px;}
+.tname{font-family:'Share Tech Mono',monospace;font-size:12px;color:#7cf;margin-bottom:5px;}
+.trow{display:flex;justify-content:space-between;gap:12px;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.4);padding:1px 0;}
+.tval{color:rgba(255,255,255,0.85);}
+#sel{position:absolute;bottom:130px;right:18px;z-index:20;padding:13px 17px;min-width:220px;display:none;border-color:rgba(124,200,255,0.5);}
+#sel-close{float:right;cursor:pointer;color:rgba(255,255,255,0.4);font-size:14px;}
+#sel-name{font-family:'Share Tech Mono',monospace;font-size:13px;color:#7cf;margin-bottom:9px;}
+.selrow{display:flex;justify-content:space-between;padding:3px 0;border-bottom:0.5px solid rgba(255,255,255,0.05);}
+.selk{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.38);}
+.selv{font-family:'Share Tech Mono',monospace;font-size:11px;color:#fff;}
+#launches{position:absolute;bottom:18px;left:18px;right:18px;z-index:20;padding:11px 15px;}
+#lt{font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:2px;color:#ff5a3c;margin-bottom:8px;}
+#lscroll{display:flex;gap:10px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;}
+#lscroll::-webkit-scrollbar{display:none;}
+.lcard{flex-shrink:0;min-width:142px;background:rgba(255,60,30,0.07);border:0.5px solid rgba(255,60,30,0.28);border-radius:8px;padding:7px 11px;}
+.lt2{font-family:'Share Tech Mono',monospace;font-size:11px;color:#ff5a3c;margin-bottom:3px;}
+.lname{font-size:11px;color:#fff;line-height:1.3;margin-bottom:2px;font-weight:500;}
+.lagency{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.35);}
+#utc{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:25;font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.3);pointer-events:none;letter-spacing:1px;}
+#loading{position:absolute;inset:0;z-index:100;background:#040810;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;}
+#ltitle{font-family:'Share Tech Mono',monospace;font-size:30px;letter-spacing:8px;color:#fff;}
+#lsub{font-family:'Share Tech Mono',monospace;font-size:10px;color:rgba(255,255,255,0.35);letter-spacing:2px;}
+#lbar-w{width:220px;height:1px;background:rgba(255,255,255,0.1);margin-top:6px;}
+#lbar{height:1px;background:#44aaff;width:0%;transition:width 0.5s;}
+#lmsg{font-family:'Share Tech Mono',monospace;font-size:9px;color:rgba(255,255,255,0.25);margin-top:10px;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<div id="loading">
+  <div id="ltitle">ORBIT</div>
+  <div id="lsub">INITIALIZING TRACKING SYSTEMS</div>
+  <div id="lbar-w"><div id="lbar"></div></div>
+  <div id="lmsg">Connecting...</div>
+</div>
+<canvas id="gl"></canvas>
+<div id="brand" class="panel"><div id="brand-title"><span class="blink"></span>ORBIT</div><div id="brand-sub">LIVE EARTH TRACKER</div></div>
+<div id="layers" class="panel">
+  <div class="ltitle">LAYERS</div>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('iss',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#44aaff"></div><span style="color:#44aaff">ISS</span></div><span class="lcnt" id="cnt-iss">LIVE</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('starlink',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#a8d8ff"></div><span style="color:#a8d8ff">Starlink</span></div><span class="lcnt" id="cnt-starlink">--</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('weather',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#3fffa8"></div><span style="color:#3fffa8">Weather</span></div><span class="lcnt" id="cnt-weather">--</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('gps',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ffc04a"></div><span style="color:#ffc04a">GPS</span></div><span class="lcnt" id="cnt-gps">--</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('flights',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ff9070"></div><span style="color:#ff9070">Flights</span></div><span class="lcnt" id="cnt-flights">--</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" checked onchange="toggleLayer('launches',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#ff5a3c"></div><span style="color:#ff5a3c">Launches</span></div><span class="lcnt">10</span></label>
+  <label class="lrow"><input type="checkbox" class="lcb" onchange="toggleLayer('orbits',this.checked)"><div class="ltog"></div><div class="llabel"><div class="ldot" style="background:#88ff88;opacity:0.6"></div><span style="color:#88ff88">Orbits</span></div><span class="lcnt">PATH</span></label>
+</div>
+<div id="iss-panel" class="panel">
+  <div style="font-family:'Share Tech Mono',monospace;font-size:10px;letter-spacing:2px;color:#44aaff;margin-bottom:9px;display:flex;align-items:center;gap:7px;"><span class="blink"></span>ISS LIVE</div>
+  <div class="irow"><span class="ikey">LAT</span><span class="ival" id="iss-lat">--</span></div>
+  <div class="irow"><span class="ikey">LON</span><span class="ival" id="iss-lon">--</span></div>
+  <div class="irow"><span class="ikey">ALT</span><span class="ival" id="iss-alt">--</span></div>
+  <div class="irow"><span class="ikey">VEL</span><span class="ival" id="iss-vel">--</span></div>
+  <div class="irow"><span class="ikey">FOOTPRINT</span><span class="ival" id="iss-foot">--</span></div>
+</div>
+<div id="stats" class="panel">
+  <div class="srow"><span class="skey">TRACKING</span><span class="sval" id="stat-total">--</span></div>
+  <div class="srow"><span class="skey">FLIGHTS</span><span class="sval" id="stat-flights">--</span></div>
+  <div class="srow"><span class="skey">SOURCE</span><span class="sval" style="color:#44aaff">N2YO+OSN</span></div>
+</div>
+<div id="search-wrap"><input id="search" type="text" placeholder="SEARCH OBJECT..." autocomplete="off" oninput="doSearch(this.value)"><div id="search-res"></div></div>
+<div id="tt"><div class="tname" id="tt-name"></div><div class="trow"><span>LAT</span><span class="tval" id="tt-lat"></span></div><div class="trow"><span>LON</span><span class="tval" id="tt-lon"></span></div><div class="trow"><span>ALT</span><span class="tval" id="tt-alt"></span></div><div class="trow"><span>SPD</span><span class="tval" id="tt-spd"></span></div></div>
+<div id="sel" class="panel"><span id="sel-close">X</span><div id="sel-name"></div><div id="sel-rows"></div></div>
+<div id="utc"></div>
+<div id="launches" class="panel"><div id="lt">UPCOMING LAUNCHES</div><div id="lscroll">Loading...</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+var API_KEY = 'PJ8FX8-5659ZM-GHAAYJ-5QSS';
+var PROXY   = 'https://api.allorigins.win/get?url=';
+
+// -- Renderer ------------------------------------------------------------------
+var canvas   = document.getElementById('gl');
+var renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x010409);
+
+var scene = new THREE.Scene();
+var cam   = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.005, 2000);
+cam.position.z = 2.8;
+
+function onResize(){
+  renderer.setSize(innerWidth, innerHeight);
+  cam.aspect = innerWidth/innerHeight;
+  cam.updateProjectionMatrix();
+}
+onResize();
+window.addEventListener('resize', onResize);
+
+// -- Stars ---------------------------------------------------------------------
+var sv = [];
+for(var i=0;i<10000;i++){
+  var th=Math.random()*Math.PI*2, ph=Math.acos(2*Math.random()-1), sr=120+Math.random()*80;
+  sv.push(sr*Math.sin(ph)*Math.cos(th), sr*Math.sin(ph)*Math.sin(th), sr*Math.cos(ph));
+}
+var starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv,3));
+scene.add(new THREE.Points(starGeo,
+  new THREE.PointsMaterial({color:0xffffff,size:0.45,sizeAttenuation:false,transparent:true,opacity:0.75})));
+
+// -- Earth helpers -------------------------------------------------------------
+function llv(lat, lon, r){
+  var phi=(90-lat)*Math.PI/180, th=(lon+180)*Math.PI/180;
+  return new THREE.Vector3(-r*Math.sin(phi)*Math.cos(th), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(th));
+}
+
+// -- Earth mesh ----------------------------------------------------------------
+var earthGeo = new THREE.SphereGeometry(1, 80, 80);
+var earthMat = new THREE.MeshPhongMaterial({color:0x0d2a4a, emissive:0x020810, shininess:22, specular:0x112233});
+var earth     = new THREE.Mesh(earthGeo, earthMat);
+var earthPivot= new THREE.Group();
+earthPivot.add(earth);
+scene.add(earthPivot);
+
+// Vertex colours
+function isLand(la,lo){
+  return (la>25&&la<75&&lo>-168&&lo<-52)||(la>7&&la<25&&lo>-92&&lo<-60)||
+    (la>-58&&la<12&&lo>-82&&lo<-34)||(la>36&&la<72&&lo>-10&&lo<42)||
+    (la>50&&la<62&&lo>-11&&lo<2)||(la>56&&la<72&&lo>4&&lo<32)||
+    (la>-36&&la<38&&lo>-18&&lo<52)||(la>-26&&la<-12&&lo>43&&lo<51)||
+    (la>12&&la<32&&lo>36&&lo<60)||(la>8&&la<36&&lo>66&&lo<90)||
+    (la>5&&la<28&&lo>92&&lo<110)||(la>22&&la<54&&lo>100&&lo<145)||
+    (la>52&&la<75&&lo>42&&lo<180)||(la>42&&la<72&&lo>42&&lo<90)||
+    (la>31&&la<46&&lo>129&&lo<146)||(la>-8&&la<6&&lo>94&&lo<141)||
+    (la>5&&la<20&&lo>116&&lo<127)||(la>-44&&la<-10&&lo>113&&lo<154)||
+    (la>-47&&la<-34&&lo>166&&lo<178)||(la>60&&la<84&&lo>-58&&lo<-16)||
+    (la>63&&la<67&&lo>-25&&lo<-13);
+}
+function isDesert(la,lo){
+  return (la>15&&la<32&&lo>-10&&lo<42)||(la>12&&la<30&&lo>36&&lo<60)||
+    (la>38&&la<50&&lo>95&&lo<120)||(la>-32&&la<-18&&lo>118&&lo<142)||
+    (la>28&&la<38&&lo>-118&&lo<-104);
+}
+function isRainforest(la,lo){
+  return (la>-8&&la<5&&lo>-75&&lo<-46)||(la>-4&&la<4&&lo>8&&lo<30)||
+    (la>-2&&la<6&&lo>94&&lo<120);
+}
+function hashN(x,y){ return ((Math.sin(x*127.1+y*311.7)*43758.5453)%1+1)%1; }
+function sNoise(x,y){
+  var ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
+  var ux=fx*fx*(3-2*fx),uy=fy*fy*(3-2*fy);
+  return (hashN(ix,iy)*(1-ux)+hashN(ix+1,iy)*ux)*(1-uy)+
+         (hashN(ix,iy+1)*(1-ux)+hashN(ix+1,iy+1)*ux)*uy;
+}
+function fNoise(x,y){
+  return sNoise(x,y)*0.5 + sNoise(x*2.1,y*2.1)*0.3 + sNoise(x*4.3,y*4.3)*0.2;
+}
+
+var pa=earthGeo.attributes.position.array, ca=new Float32Array(pa.length);
+for(var vi=0;vi<pa.length;vi+=3){
+  var vx=pa[vi],vy=pa[vi+1],vz=pa[vi+2];
+  var vla=Math.asin(Math.max(-1,Math.min(1,vy)))*180/Math.PI;
+  var vlo=Math.atan2(vz,vx)*180/Math.PI;
+  var n1=fNoise(vla*0.08,vlo*0.08), n2=fNoise(vla*0.22+5,vlo*0.22+3);
+  var vr,vg,vb;
+  if(Math.abs(vla)>80){ var iv=0.84+n1*0.10; vr=iv;vg=iv*0.96;vb=Math.min(1,iv*1.03); }
+  else if(Math.abs(vla)>70){ var tv=0.5+n1*0.12; vr=tv*0.62;vg=tv*0.72;vb=tv*0.64; }
+  else if(isLand(vla,vlo)){
+    if(isDesert(vla,vlo)){ vr=0.72+n1*0.12;vg=0.58+n1*0.10;vb=0.28+n1*0.08; }
+    else if(isRainforest(vla,vlo)){ vr=0.04+n2*0.04;vg=0.28+n1*0.10;vb=0.05+n2*0.03; }
+    else{
+      var ele=n1*0.7+n2*0.3;
+      if(ele>0.78){ vr=0.60+n2*0.15;vg=0.58+n2*0.15;vb=0.54+n2*0.15; }
+      else if(ele>0.62){ vr=0.22+n2*0.06;vg=0.36+n2*0.08;vb=0.14+n2*0.04; }
+      else{ vr=0.10+n1*0.08;vg=0.32+n1*0.12;vb=0.10+n2*0.05; }
+    }
+  } else {
+    var dep=Math.abs(Math.sin(vla*0.04)*Math.cos(vlo*0.03))+n1*0.15;
+    var shelf=(Math.abs(vla)>60||dep<0.2)?1.4:1.0;
+    vr=Math.min(0.25,0.02*shelf); vg=Math.min(0.35,0.10+dep*0.06*shelf); vb=Math.min(0.55,0.30+dep*0.10*shelf);
+  }
+  ca[vi]=Math.max(0,Math.min(1,vr)); ca[vi+1]=Math.max(0,Math.min(1,vg)); ca[vi+2]=Math.max(0,Math.min(1,vb));
+}
+earthGeo.setAttribute('color', new THREE.Float32BufferAttribute(ca,3));
+earthMat.vertexColors = true;
+
+// Grid lines
+var gm=new THREE.LineBasicMaterial({color:0x4488ff,transparent:true,opacity:0.05});
+for(var gli=-80;gli<=80;gli+=10){
+  var gp=[];for(var glo=-180;glo<=182;glo+=3)gp.push(llv(gli,glo,1.002));
+  earthPivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(gp),gm));
+}
+for(var glo2=-170;glo2<=180;glo2+=10){
+  var gp2=[];for(var gli2=-90;gli2<=90;gli2+=3)gp2.push(llv(gli2,glo2,1.002));
+  earthPivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(gp2),gm));
+}
+
+// Atmosphere
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.036,32,32),new THREE.MeshPhongMaterial({color:0x4499ff,transparent:true,opacity:0.085,depthWrite:false})));
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.07,32,32), new THREE.MeshPhongMaterial({color:0x1155cc,transparent:true,opacity:0.04,side:THREE.BackSide,depthWrite:false})));
+scene.add(new THREE.Mesh(new THREE.SphereGeometry(1.11,32,32), new THREE.MeshPhongMaterial({color:0x66aaff,transparent:true,opacity:0.10,side:THREE.BackSide,depthWrite:false})));
+
+// Lights
+scene.add(new THREE.AmbientLight(0x1a2a44,0.85));
+var sun=new THREE.DirectionalLight(0xfff5e4,1.15); sun.position.set(6,2,4); scene.add(sun);
+
+// -- Orientation helpers --------------------------------------------------------
+function orientOnSurface(grp, lat, lon, heading){
+  var up=llv(lat,lon,1).normalize();
+  var worldUp=new THREE.Vector3(0,1,0);
+  var north=worldUp.clone().sub(up.clone().multiplyScalar(up.dot(worldUp))).normalize();
+  if(north.lengthSq()<0.001) north.set(1,0,0);
+  var east=new THREE.Vector3().crossVectors(up,north).normalize();
+  var hr=((heading||0))*Math.PI/180;
+  var fwd=north.clone().multiplyScalar(Math.cos(hr)).add(east.clone().multiplyScalar(Math.sin(hr)));
+  var right=new THREE.Vector3().crossVectors(fwd,up).normalize();
+  var m=new THREE.Matrix4().makeBasis(fwd,up,right);
+  grp.quaternion.setFromRotationMatrix(m);
+}
+function orientSat(grp, lat, lon){
+  var up=llv(lat,lon,1).normalize();
+  var worldUp=new THREE.Vector3(0,1,0);
+  var north=worldUp.clone().sub(up.clone().multiplyScalar(up.dot(worldUp))).normalize();
+  if(north.lengthSq()<0.001) north.set(1,0,0);
+  var east=new THREE.Vector3().crossVectors(up,north).normalize();
+  var m=new THREE.Matrix4().makeBasis(north,up,east);
+  grp.quaternion.setFromRotationMatrix(m);
+}
+
+// -- Model builders ------------------------------------------------------------
+function buildPlane(color){
+  var g=new THREE.Group();
+  var mat =new THREE.MeshPhongMaterial({color:color,shininess:120,specular:0x334455});
+  var matD=new THREE.MeshPhongMaterial({color:new THREE.Color(color).multiplyScalar(0.45),shininess:60});
+  var matE=new THREE.MeshPhongMaterial({color:0x111122,shininess:40});
+  var matW=new THREE.MeshPhongMaterial({color:color,shininess:100,side:THREE.DoubleSide});
+
+  // Tapered fuselage
+  var fd=[{r0:0.0005,r1:0.0016,l:0.005,x:0.0195},{r0:0.0016,r1:0.0023,l:0.006,x:0.0135},
+          {r0:0.0023,r1:0.0025,l:0.018,x:0.0005},{r0:0.0025,r1:0.0016,l:0.005,x:-0.0125},
+          {r0:0.0016,r1:0.0004,l:0.006,x:-0.019}];
+  fd.forEach(function(f){
+    var c=new THREE.Mesh(new THREE.CylinderGeometry(f.r1,f.r0,f.l,12),mat);
+    c.rotation.z=Math.PI/2; c.position.x=f.x; g.add(c);
+  });
+
+  // Swept wings
+  function makeWing(side){
+    var s=side,t=0.00025,b=-0.00025;
+    var RL=[0.004,0,0],RT=[-0.005,0,0],TL=[-0.003,0,s*0.026],TR=[-0.010,0,s*0.026];
+    var v=new Float32Array([
+      RL[0],t,RL[2],RT[0],t,RT[2],TL[0],t,TL[2], RT[0],t,RT[2],TR[0],t,TR[2],TL[0],t,TL[2],
+      RL[0],b,RL[2],TL[0],b,TL[2],RT[0],b,RT[2], RT[0],b,RT[2],TL[0],b,TL[2],TR[0],b,TR[2],
+      RL[0],t,RL[2],TL[0],t,TL[2],RL[0],b,RL[2], TL[0],t,TL[2],TL[0],b,TL[2],RL[0],b,RL[2],
+      RT[0],t,RT[2],RT[0],b,RT[2],TR[0],t,TR[2], TR[0],t,TR[2],RT[0],b,RT[2],TR[0],b,TR[2],
+      TL[0],t,TL[2],TR[0],b,TR[2],TL[0],b,TL[2], TL[0],t,TL[2],TR[0],t,TR[2],TR[0],b,TR[2]
+    ]);
+    var geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+    geo.computeVertexNormals();
+    return new THREE.Mesh(geo,matW);
+  }
+  g.add(makeWing(1)); g.add(makeWing(-1));
+
+  // Wing root fairing
+  [1,-1].forEach(function(s){
+    var f=new THREE.Mesh(new THREE.BoxGeometry(0.010,0.0018,0.005),mat);
+    f.position.set(-0.001,0,s*0.0025); g.add(f);
+  });
+
+  // Horizontal stabilisers
+  function makeHStab(side){
+    var s=side,t=0.0002,b=-0.0002;
+    var RL=[-0.011,0,0],RT=[-0.015,0,0],TL=[-0.012,0,s*0.009],TR=[-0.016,0,s*0.009];
+    var v=new Float32Array([
+      RL[0],t,RL[2],RT[0],t,RT[2],TL[0],t,TL[2], RT[0],t,RT[2],TR[0],t,TR[2],TL[0],t,TL[2],
+      RL[0],b,RL[2],TL[0],b,TL[2],RT[0],b,RT[2], RT[0],b,RT[2],TL[0],b,TL[2],TR[0],b,TR[2]
+    ]);
+    var geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+    geo.computeVertexNormals(); return new THREE.Mesh(geo,matW);
+  }
+  g.add(makeHStab(1)); g.add(makeHStab(-1));
+
+  // Vertical stabiliser
+  (function(){
+    var v=new Float32Array([
+      -0.010,0.000, 0.0001,-0.015,0.000, 0.0001,-0.011,0.008, 0.0001,
+      -0.015,0.000, 0.0001,-0.014,0.004, 0.0001,-0.011,0.008, 0.0001,
+      -0.010,0.000,-0.0001,-0.011,0.008,-0.0001,-0.015,0.000,-0.0001,
+      -0.015,0.000,-0.0001,-0.011,0.008,-0.0001,-0.014,0.004,-0.0001
+    ]);
+    var geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+    geo.computeVertexNormals(); g.add(new THREE.Mesh(geo,matW));
+  })();
+
+  // Engine nacelles
+  [0.011,-0.011].forEach(function(z){
+    var nac=new THREE.Mesh(new THREE.CylinderGeometry(0.0008,0.0011,0.011,8),matE);
+    nac.rotation.z=Math.PI/2; nac.position.set(-0.001,-0.002,z); g.add(nac);
+    var ring=new THREE.Mesh(new THREE.TorusGeometry(0.0011,0.00018,6,12),matD);
+    ring.rotation.y=Math.PI/2; ring.position.set(0.004,-0.002,z); g.add(ring);
+  });
+
+  // Windows
+  for(var wi=0;wi<7;wi++){
+    var win=new THREE.Mesh(new THREE.SphereGeometry(0.00018,4,4),new THREE.MeshBasicMaterial({color:0xddeeff}));
+    win.position.set(0.009-wi*0.0024,0.0024,0); g.add(win);
+  }
+  g.scale.setScalar(1.3);
+  return g;
+}
+
+function buildSatellite(color){
+  var g=new THREE.Group();
+  var mat =new THREE.MeshPhongMaterial({color:color,shininess:60});
+  var panM=new THREE.MeshPhongMaterial({color:0x1133aa,shininess:120,emissive:0x060e44});
+  var armM=new THREE.MeshPhongMaterial({color:0x888888,shininess:80});
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.010,0.007,0.007),mat));
+  [1,-1].forEach(function(side){
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(0.001,0.001,0.014),armM);
+    arm.position.set(0,0,side*0.010); g.add(arm);
+    var panel=new THREE.Mesh(new THREE.BoxGeometry(0.013,0.001,0.008),panM);
+    panel.position.set(0,0,side*0.018); g.add(panel);
+    for(var ci=-2;ci<=2;ci++){
+      var cell=new THREE.Mesh(new THREE.BoxGeometry(0.013,0.0013,0.001),new THREE.MeshBasicMaterial({color:0x224488}));
+      cell.position.set(0,0,side*0.018+ci*0.0016); g.add(cell);
+    }
+  });
+  var dish=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.003,0.0004,12,1,false,0,Math.PI*2),armM);
+  dish.position.set(0.006,0.004,0); dish.rotation.x=0.6; g.add(dish);
+  return g;
+}
+
+function buildISS(){
+  var g=new THREE.Group();
+  var wMat=new THREE.MeshPhongMaterial({color:0xddddee,shininess:55,emissive:0x111122});
+  var pMat=new THREE.MeshPhongMaterial({color:0x1133bb,shininess:140,emissive:0x0a1a55});
+  var gMat=new THREE.MeshPhongMaterial({color:0x888899,shininess:80});
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(0.14,0.004,0.004),gMat));
+  [-0.06,-0.035,0.035,0.06].forEach(function(x){
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(0.003,0.001,0.048),gMat);
+    arm.position.set(x,0.004,0); g.add(arm);
+    [1,-1].forEach(function(side){
+      var panel=new THREE.Mesh(new THREE.BoxGeometry(0.024,0.001,0.022),pMat);
+      panel.position.set(x,0.004,side*0.027); g.add(panel);
+      for(var ri=-2;ri<=2;ri++){
+        var row=new THREE.Mesh(new THREE.BoxGeometry(0.024,0.0013,0.002),new THREE.MeshBasicMaterial({color:0x224499}));
+        row.position.set(x,0.004,side*0.027+ri*0.004); g.add(row);
+      }
+    });
+  });
+  var mods=[{x:0,z:0,r:0.009,l:0.032},{x:0,z:0.032,r:0.009,l:0.028},{x:0,z:-0.032,r:0.009,l:0.028},
+    {x:0.028,z:0,r:0.009,l:0.028},{x:0.052,z:0,r:0.008,l:0.025},{x:0.074,z:0,r:0.008,l:0.022},
+    {x:-0.028,z:0,r:0.009,l:0.028},{x:-0.052,z:0,r:0.008,l:0.022}];
+  mods.forEach(function(m){
+    var cyl=new THREE.Mesh(new THREE.CylinderGeometry(m.r,m.r,m.l,12),wMat);
+    cyl.rotation.z=Math.PI/2; cyl.position.set(m.x,0,m.z); g.add(cyl);
+    [1,-1].forEach(function(side){
+      var cap=new THREE.Mesh(new THREE.SphereGeometry(m.r,8,8,0,Math.PI*2,0,Math.PI/2),wMat);
+      cap.rotation.z=side===1?-Math.PI/2:Math.PI/2; cap.position.set(m.x+side*m.l/2,0,m.z); g.add(cap);
+    });
+  });
+  [0.086,-0.062].forEach(function(x){
+    var port=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.006,8),gMat);
+    port.rotation.z=Math.PI/2; port.position.set(x,0,0); g.add(port);
+  });
+  [1,-1].forEach(function(side){
+    var rad=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.001,0.008),new THREE.MeshPhongMaterial({color:0xffffff,shininess:40}));
+    rad.position.set(0.01,side*0.012,0); g.add(rad);
+  });
+  g.scale.setScalar(0.9); return g;
+}
+
+function buildGPS(color){
+  var g=new THREE.Group();
+  var mat =new THREE.MeshPhongMaterial({color:color,shininess:60});
+  var panM=new THREE.MeshPhongMaterial({color:0x112299,shininess:120,emissive:0x060e44});
+  var grayM=new THREE.MeshPhongMaterial({color:0x888888,shininess:60});
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.010,6),mat);
+  body.rotation.x=Math.PI/2; g.add(body);
+  [1,-1].forEach(function(side){
+    var arm=new THREE.Mesh(new THREE.BoxGeometry(0.001,0.001,0.016),grayM);
+    arm.position.set(0,0,side*0.016); g.add(arm);
+    var panel=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.009,0.001),panM);
+    panel.position.set(0,0,side*0.026); g.add(panel);
+    for(var gi=-2;gi<=2;gi++){
+      var line=new THREE.Mesh(new THREE.BoxGeometry(0.001,0.009,0.001),new THREE.MeshBasicMaterial({color:0x224488}));
+      line.position.set(gi*0.003,0,side*0.026); g.add(line);
+    }
+  });
+  var ant=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.006,0.002,12),grayM);
+  ant.position.set(0,0.007,0); g.add(ant);
+  return g;
+}
+
+function buildLaunchMarker(){
+  var g=new THREE.Group();
+  var rMat=new THREE.MeshPhongMaterial({color:0xff5533,emissive:0x441100,shininess:60});
+  var pMat=new THREE.MeshPhongMaterial({color:0x888888,shininess:40});
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.014,0.002,8),pMat));
+  var body=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.004,0.018,8),rMat);
+  body.position.y=0.011; g.add(body);
+  var nose=new THREE.Mesh(new THREE.ConeGeometry(0.003,0.007,8),rMat);
+  nose.position.y=0.024; g.add(nose);
+  for(var fi=0;fi<4;fi++){
+    var fin=new THREE.Mesh(new THREE.BoxGeometry(0.001,0.006,0.006),new THREE.MeshPhongMaterial({color:0xcc3322}));
+    fin.position.set(Math.sin(fi*Math.PI/2)*0.004,0.004,Math.cos(fi*Math.PI/2)*0.004); g.add(fin);
+  }
+  return g;
+}
+
+// -- Data ----------------------------------------------------------------------
+var data={iss:[],starlink:[],weather:[],gps:[],flights:[]};
+var layers={iss:true,starlink:true,weather:true,gps:true,flights:true,launches:true,orbits:false};
+window.toggleLayer=function(l,v){layers[l]=v;rebuildObjects();};
+
+var launchSites=[
+  {name:'Kennedy Space Center',lat:28.574,lon:-80.649,agency:'NASA/SpaceX'},
+  {name:'Baikonur Cosmodrome', lat:45.920,lon:63.342, agency:'Roscosmos'},
+  {name:'Vandenberg SFB',      lat:34.742,lon:-120.574,agency:'SpaceX/ULA'},
+  {name:'Cape Canaveral SFS',  lat:28.388,lon:-80.604, agency:'ULA'},
+  {name:'Jiuquan Launch Centre',lat:40.960,lon:100.298,agency:'CNSA'},
+  {name:'Guiana Space Centre', lat:5.239, lon:-52.769, agency:'ESA'},
+  {name:'Satish Dhawan SC',    lat:13.733,lon:80.235,  agency:'ISRO'},
+  {name:'Tanegashima SC',      lat:30.400,lon:130.968, agency:'JAXA'},
+  {name:'Wenchang SC',         lat:19.615,lon:110.951, agency:'CNSA'},
+  {name:'Mahia Peninsula',     lat:-39.261,lon:177.864,agency:'Rocket Lab'}
+];
+
+var allObjs=[], objGroup=new THREE.Group();
+scene.add(objGroup);
+
+function rebuildObjects(){
+  while(objGroup.children.length) objGroup.remove(objGroup.children[0]);
+  allObjs=[];
+
+  if(layers.iss&&data.iss.length>0){
+    var s=data.iss[0], issR=1+(s.alt||408)/6371;
+    var iss=buildISS();
+    iss.position.copy(llv(s.lat,s.lon,issR));
+    orientSat(iss,s.lat,s.lon);
+    iss.userData=Object.assign({},s,{type:'iss'});
+    objGroup.add(iss); allObjs.push(iss);
+    var ring=new THREE.Mesh(new THREE.RingGeometry(0.025,0.032,32),
+      new THREE.MeshBasicMaterial({color:0x44aaff,transparent:true,opacity:0.3,side:THREE.DoubleSide}));
+    ring.position.copy(llv(s.lat,s.lon,issR));
+    ring.lookAt(0,0,0); ring.userData={isRing:true}; objGroup.add(ring);
+    if(s.footprint){
+      var fp=[];
+      for(var fi=0;fi<=64;fi++){
+        var fa=(fi/64)*Math.PI*2, fd2=s.footprint/2/111;
+        var fcos=Math.max(0.01,Math.cos(s.lat*Math.PI/180));
+        fp.push(llv(s.lat+Math.cos(fa)*fd2,s.lon+Math.sin(fa)*fd2/fcos,1.003));
+      }
+      objGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(fp),
+        new THREE.LineBasicMaterial({color:0x44aaff,transparent:true,opacity:0.2})));
+    }
+    if(layers.orbits){
+      var ipts=[],iinc=51.6*Math.PI/180;
+      for(var ii=0;ii<=120;ii++){var iu=(ii/120)*Math.PI*2;ipts.push(new THREE.Vector3(issR*Math.cos(iu),issR*Math.sin(iu)*Math.cos(iinc),issR*Math.sin(iu)*Math.sin(iinc)));}
+      objGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ipts),new THREE.LineBasicMaterial({color:0x44aaff,transparent:true,opacity:0.3})));
+    }
+  }
+
+  function addSats(type,color,scale,altDefault){
+    if(!layers[type]) return;
+    data[type].forEach(function(s){
+      var m = (type==='gps') ? buildGPS(color) : buildSatellite(color);
+      m.position.copy(llv(s.lat,s.lon,1+(s.alt||altDefault)/6371));
+      orientSat(m,s.lat,s.lon);
+      m.scale.setScalar(scale);
+      m.userData=Object.assign({},s,{type:type});
+      objGroup.add(m); allObjs.push(m);
+      if(layers.orbits&&s.inc!==undefined){
+        var opts=[],or=1+(s.alt||altDefault)/6371,oi=s.inc*Math.PI/180,oran=(s.raan||0)*Math.PI/180;
+        for(var oi2=0;oi2<=80;oi2++){var ou=(oi2/80)*Math.PI*2,ox=or*Math.cos(ou),oy=or*Math.sin(ou)*Math.cos(oi),oz=or*Math.sin(ou)*Math.sin(oi);opts.push(new THREE.Vector3(ox*Math.cos(oran)-oz*Math.sin(oran),oy,ox*Math.sin(oran)+oz*Math.cos(oran)));}
+        objGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(opts),new THREE.LineBasicMaterial({color:color,transparent:true,opacity:0.12})));
+      }
+    });
+  }
+  addSats('starlink',0xa8d8ff,0.8,550);
+  addSats('weather', 0x3fffa8,1.0,800);
+  addSats('gps',     0xffc04a,1.0,20200);
+
+  if(layers.flights){
+    data.flights.forEach(function(s){
+      var m=buildPlane(0xff9070);
+      m.position.copy(llv(s.lat,s.lon,1+(s.alt||10)/6371));
+      orientOnSurface(m,s.lat,s.lon,s.heading||0);
+      m.userData=Object.assign({},s,{type:'flights'});
+      objGroup.add(m); allObjs.push(m);
+    });
+  }
+
+  if(layers.launches){
+    launchSites.forEach(function(s){
+      var m=buildLaunchMarker();
+      m.position.copy(llv(s.lat,s.lon,1.003));
+      orientSat(m,s.lat,s.lon);
+      m.userData=Object.assign({},s,{type:'launch',alt:0});
+      objGroup.add(m); allObjs.push(m);
+    });
+  }
+
+  var total=data.starlink.length+data.weather.length+data.gps.length+data.flights.length+(data.iss.length?1:0);
+  document.getElementById('stat-total').textContent=total.toLocaleString()+' obj';
+  document.getElementById('stat-flights').textContent=data.flights.length?data.flights.length+' airborne':'loading...';
+}
+
+// -- API -----------------------------------------------------------------------
+async function n2yo(ep){
+  try{
+    var url='https://api.n2yo.com/rest/v1/satellite/'+ep+'&apiKey='+API_KEY;
+    var res=await fetch(PROXY+encodeURIComponent(url));
+    return JSON.parse((await res.json()).contents);
+  }catch(e){return null;}
+}
+async function fetchAbove(la,lo,alt,deg,cat,type,elId){
+  var d=await n2yo('above/'+la+'/'+lo+'/'+alt+'/'+deg+'/'+cat);
+  if(d&&d.above){
+    data[type]=d.above.map(function(s){return{name:s.satname.trim(),norad:s.satid,lat:s.satlat,lon:s.satlng,alt:s.satalt,inc:s.inclination,raan:s.raan};});
+    document.getElementById(elId).textContent=data[type].length;
+    rebuildObjects();
+  }
+}
+async function fetchISS(){
+  try{
+    var d=await(await fetch('https://api.wheretheiss.at/v1/satellites/25544')).json();
+    data.iss=[{name:'International Space Station',lat:d.latitude,lon:d.longitude,alt:d.altitude,vel:d.velocity,footprint:d.footprint,inc:51.6}];
+    document.getElementById('iss-lat').textContent=d.latitude.toFixed(3)+'deg';
+    document.getElementById('iss-lon').textContent=d.longitude.toFixed(3)+'deg';
+    document.getElementById('iss-alt').textContent=Math.round(d.altitude)+' km';
+    document.getElementById('iss-vel').textContent=Math.round(d.velocity).toLocaleString()+' km/h';
+    document.getElementById('iss-foot').textContent=Math.round(d.footprint)+' km';
+    rebuildObjects();
+  }catch(e){}
+}
+async function fetchFlights(){
+  try{
+    var d=await(await fetch('https://opensky-network.org/api/states/all?lamin=-60&lomin=-180&lamax=75&lomax=180')).json();
+    if(d&&d.states){
+      data.flights=d.states.filter(function(s){return s[5]&&s[6]&&s[7]>100;}).sort(function(){return Math.random()-0.5;}).slice(0,200).map(function(s){
+        return{name:s[1]?s[1].trim():'UNKNOWN',lat:s[6],lon:s[5],alt:Math.round((s[7]||10000)/100)/10,vel:Math.round((s[9]||220)*3.6),heading:s[10]||0};
+      });
+      document.getElementById('cnt-flights').textContent=data.flights.length;
+      rebuildObjects();
+    }
+  }catch(e){data.flights=genFlights();document.getElementById('cnt-flights').textContent=data.flights.length+'*';rebuildObjects();}
+}
+function genFlights(){
+  var routes=[[51.5,-0.1,40.7,-74,270],[48.9,2.3,25.3,55.4,120],[35.7,139.8,37.6,-122,60],
+    [-33.9,151.2,51.5,-0.1,320],[1.3,103.9,48.9,2.3,310],[55.8,37.6,40.7,-74,250],
+    [19.4,-99.1,34.0,-118,300],[25.2,55.3,51.5,-0.1,330],[34.0,-118,41.9,-87,70],
+    [52.5,13.4,48.9,2.3,230],[1.3,103.9,35.7,139.8,30],[33.4,-112,41.9,-87,55]];
+  var out=[];
+  routes.forEach(function(r,ri){
+    for(var i=0;i<16;i++){
+      var t=Math.random();
+      out.push({name:'FL'+ri+String(i).padStart(2,'0'),lat:r[0]+(r[2]-r[0])*t+(Math.random()-0.5)*1.2,lon:r[1]+(r[3]-r[1])*t+(Math.random()-0.5)*1.2,alt:9+Math.random()*3,vel:820+Math.random()*180,heading:r[4]+(Math.random()-0.5)*20});
+    }
+  });
+  return out;
+}
+async function fetchLaunches(){
+  try{
+    var d=await(await fetch('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=10&format=json')).json();
+    var el=document.getElementById('lscroll');
+    if(d.results&&d.results.length){
+      el.innerHTML=d.results.map(function(l){
+        var dt=new Date(l.net),diff=dt-Date.now();
+        var days=Math.floor(diff/86400000),hrs=Math.floor((diff%86400000)/3600000),mins=Math.floor((diff%3600000)/60000);
+        var tstr=diff<0?'LAUNCHED':days>0?('T- '+days+'d '+hrs+'h'):hrs>0?('T- '+hrs+'h '+mins+'m'):('T- '+mins+'m');
+        var col=diff<0?'#3fffa8':diff<86400000?'#ff5a3c':'#ffc04a';
+        return '<div class="lcard"><div class="lt2" style="color:'+col+'">'+tstr+'</div><div class="lname">'+(l.name||'').substring(0,30)+'</div><div class="lagency">'+((l.launch_service_provider&&l.launch_service_provider.abbrev)||'?')+'</div></div>';
+      }).join('');
+    }else el.innerHTML='<span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.3)">No launches found</span>';
+  }catch(e){document.getElementById('lscroll').innerHTML='<span style="font-family:monospace;font-size:11px;color:rgba(255,255,255,0.3)">Unavailable</span>';}
+}
+
+// -- Raycasting ----------------------------------------------------------------
+var raycaster=new THREE.Raycaster();
+var mpick=new THREE.Vector2();
+function getHit(mx,my){
+  mpick.x=(mx/innerWidth)*2-1; mpick.y=-(my/innerHeight)*2+1;
+  raycaster.setFromCamera(mpick,cam);
+  var meshes=[];
+  allObjs.forEach(function(o){o.traverse(function(c){if(c.isMesh&&!c.userData.isRing)meshes.push(c);});});
+  var hits=raycaster.intersectObjects(meshes);
+  if(!hits.length) return null;
+  var obj=hits[0].object;
+  while(obj.parent&&allObjs.indexOf(obj)===-1) obj=obj.parent;
+  return(obj.userData&&obj.userData.name)?obj:null;
+}
+
+// -- Search --------------------------------------------------------------------
+window.doSearch=function(q){
+  var el=document.getElementById('search-res');
+  if(!q||q.length<2){el.style.display='none';return;}
+  var matches=allObjs.filter(function(o){return o.userData.name&&o.userData.name.toLowerCase().indexOf(q.toLowerCase())!==-1;}).slice(0,7);
+  if(!matches.length){el.style.display='none';return;}
+  el.style.display='block';
+  el.innerHTML=matches.map(function(m){
+    var idx=allObjs.indexOf(m);
+    return '<div class="sri" onclick="selectIdx('+idx+')">'+m.userData.name+' <span style="color:rgba(255,255,255,0.3);font-size:9px">'+(m.userData.type||'').toUpperCase()+'</span></div>';
+  }).join('');
+};
+window.selectIdx=function(idx){if(allObjs[idx])showSel(allObjs[idx].userData);document.getElementById('search-res').style.display='none';document.getElementById('search').value='';};
+function showSel(d){
+  document.getElementById('sel').style.display='block';
+  document.getElementById('sel-name').textContent=d.name||'Object';
+  var rows=[['TYPE',(d.type||'').toUpperCase()],['LAT',d.lat!=null?d.lat.toFixed(3)+'deg':'--'],
+    ['LON',d.lon!=null?d.lon.toFixed(3)+'deg':'--'],['ALT',d.alt!=null?Math.round(d.alt)+' km':'--'],
+    ['VEL',d.vel?Math.round(d.vel).toLocaleString()+' km/h':'--'],['INFO',d.norad?'NORAD '+d.norad:(d.agency||'--')]];
+  document.getElementById('sel-rows').innerHTML=rows.map(function(r){return '<div class="selrow"><span class="selk">'+r[0]+'</span><span class="selv">'+r[1]+'</span></div>';}).join('');
+}
+document.getElementById('sel-close').onclick=function(){document.getElementById('sel').style.display='none';};
+
+// -- Controls ------------------------------------------------------------------
+var tt=document.getElementById('tt');
+var isDrag=false,prevX=0,prevY=0,rotX=0.3,rotY=0.5,zoom=2.8,autoRot=true;
+
+canvas.addEventListener('mousedown',function(e){isDrag=true;autoRot=false;prevX=e.clientX;prevY=e.clientY;});
+window.addEventListener('mouseup',function(){isDrag=false;});
+canvas.addEventListener('mousemove',function(e){
+  if(isDrag){rotY+=(e.clientX-prevX)*0.005;rotX=Math.max(-1.4,Math.min(1.4,rotX+(e.clientY-prevY)*0.005));prevX=e.clientX;prevY=e.clientY;tt.style.display='none';return;}
+  var hit=getHit(e.clientX,e.clientY);
+  if(hit){
+    var d=hit.userData;
+    tt.style.display='block';tt.style.left=(e.clientX+18)+'px';tt.style.top=(e.clientY-8)+'px';
+    document.getElementById('tt-name').textContent=d.name||d.type;
+    document.getElementById('tt-lat').textContent=d.lat!=null?d.lat.toFixed(2)+'deg':'--';
+    document.getElementById('tt-lon').textContent=d.lon!=null?d.lon.toFixed(2)+'deg':'--';
+    document.getElementById('tt-alt').textContent=d.alt!=null?Math.round(d.alt)+' km':'--';
+    document.getElementById('tt-spd').textContent=d.vel?Math.round(d.vel).toLocaleString()+' km/h':(d.agency||'--');
+    canvas.style.cursor='pointer';
+  }else{tt.style.display='none';canvas.style.cursor='crosshair';}
+});
+canvas.addEventListener('click',function(e){var hit=getHit(e.clientX,e.clientY);if(hit)showSel(hit.userData);});
+canvas.addEventListener('wheel',function(e){zoom=Math.max(1.3,Math.min(10,zoom+e.deltaY*0.004));e.preventDefault();},{passive:false});
+var lastPinch=0;
+canvas.addEventListener('touchstart',function(e){isDrag=true;autoRot=false;if(e.touches.length===1){prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}if(e.touches.length===2)lastPinch=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);});
+canvas.addEventListener('touchmove',function(e){
+  if(e.touches.length===1&&isDrag){rotY+=(e.touches[0].clientX-prevX)*0.005;rotX=Math.max(-1.4,Math.min(1.4,rotX+(e.touches[0].clientY-prevY)*0.005));prevX=e.touches[0].clientX;prevY=e.touches[0].clientY;}
+  if(e.touches.length===2){var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);zoom=Math.max(1.3,Math.min(10,zoom*(lastPinch/d)));lastPinch=d;}
+  e.preventDefault();},{passive:false});
+canvas.addEventListener('touchend',function(){isDrag=false;});
+
+setInterval(function(){document.getElementById('utc').textContent='UTC  '+new Date().toUTCString().split(' ')[4];},1000);
+
+// -- Render loop ---------------------------------------------------------------
+var tick=0;
+function animate(){
+  requestAnimationFrame(animate); tick+=0.016;
+  if(autoRot) rotY+=0.0012;
+  earthPivot.rotation.y=rotY; earthPivot.rotation.x=rotX;
+  objGroup.rotation.y=rotY;   objGroup.rotation.x=rotX;
+  cam.position.z=zoom;
+  objGroup.children.forEach(function(o){
+    if(o.userData&&o.userData.isRing){o.material.opacity=0.18+0.18*Math.sin(tick*2.5);o.lookAt(cam.position);}
+  });
+  renderer.render(scene,cam);
+}
+animate();
+
+// -- Boot ----------------------------------------------------------------------
+function setLoad(msg,pct){document.getElementById('lmsg').textContent=msg;document.getElementById('lbar').style.width=pct+'%';}
+function hideLoad(){var el=document.getElementById('loading');el.style.transition='opacity 0.9s';el.style.opacity='0';setTimeout(function(){el.style.display='none';},900);}
+
+async function boot(){
+  setLoad('Connecting to ISS...',10); await fetchISS();
+  setLoad('Loading Starlink...',25);  await fetchAbove(0,0,0,90,18,'starlink','cnt-starlink');
+  setLoad('Loading weather sats...',45); await fetchAbove(0,0,0,90,3,'weather','cnt-weather');
+  setLoad('Loading GPS...',62);       await fetchAbove(0,0,0,90,20,'gps','cnt-gps');
+  setLoad('Fetching flights...',78);  await fetchFlights();
+  setLoad('Loading launches...',92);  await fetchLaunches();
+  setLoad('Ready.',100); rebuildObjects();
+  setTimeout(hideLoad,400);
+  setInterval(fetchISS,5000);
+  setInterval(fetchFlights,60000);
+  setInterval(fetchLaunches,300000);
+}
+boot();
+</script>
+</body>
+</html>

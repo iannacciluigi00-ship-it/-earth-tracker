@@ -491,199 +491,240 @@ var shipAngle   = 0.0;
 function buildSpacecraft() {
   var g = new THREE.Group();
 
-  // Materials
-  var hull    = new THREE.MeshPhongMaterial({color:0xe8e8f0, shininess:160, specular:0x445566, emissive:0x060810});
-  var hullDk  = new THREE.MeshPhongMaterial({color:0xb8b8c8, shininess:100, specular:0x334455});
-  var dark    = new THREE.MeshPhongMaterial({color:0x1a1a26, shininess:60});
-  var black   = new THREE.MeshPhongMaterial({color:0x080810, shininess:30});
-  var solar   = new THREE.MeshPhongMaterial({color:0x0a0f2a, shininess:200, specular:0x223388, emissive:0x020408});
-  var solarCell = new THREE.MeshBasicMaterial({color:0x1a2860});
-  var gold    = new THREE.MeshPhongMaterial({color:0xd4a017, shininess:200, specular:0xffcc44, emissive:0x1a0800});
-  var glass   = new THREE.MeshPhongMaterial({color:0x88ccff, shininess:300, transparent:true, opacity:0.85, emissive:0x081828});
-  var plumeM  = new THREE.MeshBasicMaterial({color:0x99ccff, transparent:true, opacity:0.75});
-  var thrustM = new THREE.MeshBasicMaterial({color:0xffaa44, transparent:true, opacity:0.0});
+  // -- MATERIALS --------------------------------------------------------------
+  var hullW   = new THREE.MeshPhongMaterial({color:0xeef2f6,shininess:240,specular:0x8899aa,emissive:0x080c12});
+  var hullG   = new THREE.MeshPhongMaterial({color:0xb0bac5,shininess:120,specular:0x445566});
+  var dark    = new THREE.MeshPhongMaterial({color:0x18202a,shininess:80});
+  var vdark   = new THREE.MeshPhongMaterial({color:0x080c12,shininess:40});
+  var solar   = new THREE.MeshPhongMaterial({color:0x0d1535,shininess:240,specular:0x2244cc,emissive:0x020610});
+  var cellMat = new THREE.MeshPhongMaterial({color:0x0e1a40,shininess:180,specular:0x3355bb,emissive:0x030810});
+  var cellLine= new THREE.LineBasicMaterial({color:0x223366,transparent:true,opacity:0.7});
+  var gold    = new THREE.MeshPhongMaterial({color:0xc8900a,shininess:250,specular:0xffcc22,emissive:0x180900});
+  var silver  = new THREE.MeshPhongMaterial({color:0x8899aa,shininess:180,specular:0xccddee});
+  var glass   = new THREE.MeshPhongMaterial({color:0xaad4ff,shininess:400,transparent:true,opacity:0.75,emissive:0x06141e});
+  var plumeM  = new THREE.MeshBasicMaterial({color:0xaaccff,transparent:true,opacity:0.0});
 
-  // === CAPSULE (CM) ===
-  // Main cone body - Dragon is a blunted cone
-  var cm = new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.060,0.110,16), hull);
-  cm.position.y = 0.068; g.add(cm);
+  // -- CAPSULE BODY -----------------------------------------------------------
+  // Dragon capsule is a truncated cone ~3.7m diameter base, 2.9m top
+  // In scene units (scale 0.3): base=0.072, top=0.055, height=0.11
+  var body = new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.072,0.115,18), hullW);
+  body.position.y = 0.078; g.add(body);
 
-  // Rounded nose cap
-  var noseCap = new THREE.Mesh(new THREE.SphereGeometry(0.042,16,10,0,Math.PI*2,0,Math.PI*0.55), hull);
-  noseCap.position.y = 0.123; g.add(noseCap);
+  // Nose dome - slightly flattened sphere cap
+  var nose = new THREE.Mesh(new THREE.SphereGeometry(0.052,18,12,0,Math.PI*2,0,Math.PI*0.52), hullW);
+  nose.position.y = 0.135; g.add(nose);
 
-  // Drogue chute housing (top)
-  var drogue = new THREE.Mesh(new THREE.CylinderGeometry(0.015,0.020,0.018,8), hullDk);
-  drogue.position.y = 0.163; g.add(drogue);
+  // PICA-X ablative heat shield (bottom, dark grey-brown)
+  var pica = new THREE.MeshPhongMaterial({color:0x1a1610,shininess:20,emissive:0x080604});
+  var shield = new THREE.Mesh(new THREE.CylinderGeometry(0.073,0.073,0.012,18), pica);
+  shield.position.y = 0.018; g.add(shield);
 
-  // IDSS docking port on nose (Dragon 2 crew)
-  var dockBase = new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.025,0.012,12), dark);
-  dockBase.position.y = 0.175; g.add(dockBase);
-  var dockRing = new THREE.Mesh(new THREE.CylinderGeometry(0.020,0.020,0.004,12,1,true), dark);
-  dockRing.position.y = 0.183; g.add(dockRing);
-  var dockFace = new THREE.Mesh(new THREE.CircleGeometry(0.016,12), black);
-  dockFace.rotation.x = -Math.PI/2; dockFace.position.y = 0.187; g.add(dockFace);
-  // Docking alignment pins
-  for(var dp=0;dp<4;dp++){
-    var pin=new THREE.Mesh(new THREE.CylinderGeometry(0.0015,0.0015,0.006,4), dark);
-    pin.position.set(Math.cos(dp*Math.PI/2)*0.018,0.185,Math.sin(dp*Math.PI/2)*0.018);
-    g.add(pin);
+  // Nose cone fairing structure (top ring)
+  var noseRing = new THREE.Mesh(new THREE.CylinderGeometry(0.038,0.052,0.010,18), hullG);
+  noseRing.position.y = 0.137; g.add(noseRing);
+
+  // Forward bay cover / parachute housing
+  var paraHatch = new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.014,12), dark);
+  paraHatch.position.y = 0.158; g.add(paraHatch);
+
+  // IDSS docking ring (Dragon 2 crew)
+  var dockBase = new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.028,0.014,16), silver);
+  dockBase.position.y = 0.172; g.add(dockBase);
+  var dockPortFace = new THREE.Mesh(new THREE.CircleGeometry(0.020,16), vdark);
+  dockPortFace.rotation.x=-Math.PI/2; dockPortFace.position.y=0.180; g.add(dockPortFace);
+  // Docking guide pegs
+  for(var dp=0;dp<3;dp++){
+    var peg=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.008,4), silver);
+    var pa=(dp/3)*Math.PI*2;
+    peg.position.set(Math.cos(pa)*0.016,0.180,Math.sin(pa)*0.016); g.add(peg);
   }
 
-  // Windows x4 (Dragon 2 crew has 4 windows)
-  [0,90,180,270].forEach(function(deg,i){
-    var rad=deg*Math.PI/180;
-    var wr=0.058, wy=0.085;
-    // Oval window recessed
-    var wFrame=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,0.004,10,1,true), dark);
-    wFrame.rotation.z=Math.PI/2; wFrame.rotation.y=rad;
-    wFrame.position.set(Math.cos(rad)*wr,wy,Math.sin(rad)*wr); g.add(wFrame);
-    var wGlass=new THREE.Mesh(new THREE.CircleGeometry(0.010,10), glass);
-    wGlass.rotation.y=-rad-Math.PI/2;
-    wGlass.position.set(Math.cos(rad)*(wr+0.001),wy,Math.sin(rad)*(wr+0.001)); g.add(wGlass);
-  });
-
-  // Thermal protection / PICA-X tiles on lower capsule (darker)
-  var pica=new THREE.Mesh(new THREE.CylinderGeometry(0.061,0.061,0.025,16,1,true), dark);
-  pica.position.y=0.013; g.add(pica);
-
-  // Heat shield (bottom of CM)
-  var heatShield=new THREE.Mesh(new THREE.CylinderGeometry(0.062,0.060,0.010,16), black);
-  heatShield.position.y=0.005; g.add(heatShield);
-  // Ablative pattern on heat shield
-  for(var hs=0;hs<8;hs++){
-    var tile=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.011,6), dark);
-    tile.position.set(Math.cos(hs*Math.PI/4)*0.038,0.005,Math.sin(hs*Math.PI/4)*0.038);
-    g.add(tile);
+  // 4 Windows (Dragon crew has 4 round windows arranged around nose)
+  for(var wi=0;wi<4;wi++){
+    var wa=(wi/4)*Math.PI*2;
+    var wr=0.050, wy=0.102;
+    // Window recess ring
+    var wRing=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.003,12,1,true), dark);
+    wRing.rotation.z=Math.PI/2; wRing.rotation.y=wa;
+    wRing.position.set(Math.cos(wa)*wr, wy, Math.sin(wa)*wr); g.add(wRing);
+    // Glass
+    var wGl=new THREE.Mesh(new THREE.CircleGeometry(0.009,12), glass);
+    wGl.rotation.y = -wa - Math.PI/2;
+    wGl.position.set(Math.cos(wa)*(wr+0.001), wy, Math.sin(wa)*(wr+0.001)); g.add(wGl);
+    // Frame bolt ring
+    for(var wb=0;wb<6;wb++){
+      var bolta=wb*Math.PI/3, boltR=0.011;
+      var bx=Math.cos(wa)*wr + Math.cos(bolta)*boltR*Math.abs(Math.sin(wa));
+      var bz=Math.sin(wa)*wr + Math.sin(bolta)*boltR*Math.abs(Math.cos(wa));
+      var bolt=new THREE.Mesh(new THREE.SphereGeometry(0.0012,4,4), dark);
+      bolt.position.set(bx, wy+Math.cos(bolta)*boltR*0.3, bz); g.add(bolt);
+    }
   }
 
-  // SuperDraco thruster pods x4 (integrated into capsule wall)
-  for(var sd=0;sd<4;sd++){
-    var sdang=(sd/4)*Math.PI*2+Math.PI/4;
-    var sdx=Math.cos(sdang)*0.058, sdz=Math.sin(sdang)*0.058;
-    var pod=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.032,0.022), hullDk);
-    pod.position.set(sdx,0.038,sdz); g.add(pod);
-    // SuperDraco nozzle pair
-    [-0.007,0.007].forEach(function(off){
-      var noz=new THREE.Mesh(new THREE.CylinderGeometry(0.005,0.008,0.016,8), black);
-      noz.rotation.x=Math.PI/2;
-      noz.position.set(Math.cos(sdang)*(0.068),0.038,Math.sin(sdang)*(0.068)+off); g.add(noz);
-      // Nozzle interior
-      var nozIn=new THREE.Mesh(new THREE.CircleGeometry(0.005,8), new THREE.MeshBasicMaterial({color:0x220808}));
-      nozIn.rotation.y=-sdang-Math.PI/2;
-      nozIn.position.set(Math.cos(sdang)*0.077,0.038,Math.sin(sdang)*0.077+off); g.add(nozIn);
+  // SuperDraco integrated thruster pods x4 pairs
+  for(var sp=0;sp<4;sp++){
+    var sang=(sp/4)*Math.PI*2;
+    var sx2=Math.cos(sang)*0.071, sz2=Math.sin(sang)*0.071;
+    // Pod housing - bulge in capsule wall
+    var pod=new THREE.Mesh(new THREE.BoxGeometry(0.028,0.038,0.028), hullG);
+    pod.position.set(sx2, 0.050, sz2);
+    pod.rotation.y = -sang; g.add(pod);
+    // 2 nozzles per pod
+    [-0.008,0.008].forEach(function(off){
+      var nAngle = sang + Math.PI/2;
+      var noz=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.007,0.018,8), vdark);
+      noz.rotation.x=Math.PI/2; noz.rotation.y=sang;
+      noz.position.set(Math.cos(sang)*0.082+Math.cos(nAngle)*off,0.050,Math.sin(sang)*0.082+Math.sin(nAngle)*off);
+      g.add(noz);
     });
   }
 
-  // === TRUNK ===
-  var trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.115,16), hullDk);
-  trunk.position.y=-0.065; g.add(trunk);
+  // -- TRUNK ------------------------------------------------------------------
+  // Cylindrical unpressurised trunk below capsule
+  var trunkMat = new THREE.MeshPhongMaterial({color:0x1c2530,shininess:80,specular:0x334455});
+  var trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.068,0.068,0.130,18), trunkMat);
+  trunk.position.y = -0.072; g.add(trunk);
 
-  // Trunk panel lines (4 sections)
-  for(var tp=0;tp<4;tp++){
-    var tpang=tp*Math.PI/2;
-    var tpanel=new THREE.Mesh(new THREE.CylinderGeometry(0.059,0.059,0.112,4,1,true,-Math.PI/4+tpang,Math.PI/2), dark);
-    tpanel.position.y=-0.065; g.add(tpanel);
+  // Trunk structural ribs (4 longerons)
+  for(var tr=0;tr<4;tr++){
+    var tang=(tr/4)*Math.PI*2+Math.PI/8;
+    var rib=new THREE.Mesh(new THREE.BoxGeometry(0.006,0.130,0.006), dark);
+    rib.position.set(Math.cos(tang)*0.068,- 0.072,Math.sin(tang)*0.068); g.add(rib);
   }
 
-  // Structural rings on trunk
-  [-0.02,-0.065,-0.11].forEach(function(y){
-    var ring=new THREE.Mesh(new THREE.CylinderGeometry(0.060,0.060,0.006,16,1,true), dark);
-    ring.position.y=y; g.add(ring);
+  // Circumferential rings on trunk
+  [-0.010,-0.055,-0.100,-0.130].forEach(function(y){
+    var rng=new THREE.Mesh(new THREE.CylinderGeometry(0.070,0.070,0.006,18,1,true), dark);
+    rng.position.y=y; g.add(rng);
   });
 
-  // Gold MLI thermal blankets (multiple patches)
-  [[0.06,0,-0.04,0.028,0.055,0.001],
-   [-0.06,0,-0.04,0.028,0.055,0.001],
-   [0,0,-0.045,0.001,0.055,0.028],
-   [0,0,0.045,0.001,0.055,0.028]].forEach(function(p){
-    var foil=new THREE.Mesh(new THREE.BoxGeometry(p[3],p[4],p[5]), gold);
-    foil.position.set(p[0],-0.065+p[1],p[2]); g.add(foil);
+  // Gold MLI thermal blanket patches on trunk (like in the CRS-20 photo)
+  var goldPatches=[
+    [0.072,0,-0.040],[0.072,0,0.020],[-0.072,0,0.020],
+    [0,0,0.072],[0,0,-0.072]
+  ];
+  // Use explicit positions to avoid negative literal issue
+  var gpData=[[0.072,0,-0.040],[-0.072,0,-0.040],[0.072,0,0.020],[-0.072,0,0.020]];
+  gpData.forEach(function(p){
+    var gp=new THREE.Mesh(new THREE.BoxGeometry(0.001,0.040,0.028), gold);
+    gp.position.set(p[0],-0.072+p[1],p[2]); g.add(gp);
+  });
+  // Additional gold blankets top/bottom face of trunk
+  [0.072,-0.072].forEach(function(z){
+    var gp2=new THREE.Mesh(new THREE.BoxGeometry(0.030,0.001,0.040), gold);
+    gp2.position.set(0,-0.072,z); g.add(gp2);
   });
 
-  // Radiator panels on trunk sides (white thermal)
-  var radMat=new THREE.MeshPhongMaterial({color:0xffffff,shininess:40});
-  [0,Math.PI].forEach(function(ang){
-    var rad2=new THREE.Mesh(new THREE.BoxGeometry(0.005,0.08,0.04), radMat);
-    rad2.position.set(Math.cos(ang)*0.065,-0.065,Math.sin(ang)*0.065); g.add(rad2);
-  });
+  // Draco RCS thruster quads (8 thrusters, 4 locations on trunk)
+  for(var rq=0;rq<4;rq++){
+    var rqAng=(rq/4)*Math.PI*2+Math.PI/4;
+    var rqx=Math.cos(rqAng)*0.072, rqz=Math.sin(rqAng)*0.072;
+    var rqBlk=new THREE.Mesh(new THREE.BoxGeometry(0.012,0.012,0.012), dark);
+    rqBlk.position.set(rqx,-0.040,rqz); g.add(rqBlk);
+    // 2 nozzle cones per location
+    [-0.006,0.006].forEach(function(off){
+      var rn=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.005,0.012,6), vdark);
+      rn.rotation.x=Math.PI/2;
+      rn.position.set(Math.cos(rqAng)*0.080,-0.040+off,Math.sin(rqAng)*0.080); g.add(rn);
+    });
+  }
 
-  // === SOLAR ARRAYS ===
+  // -- SOLAR ARRAYS (3 panels per side, matching CRS-20 photo exactly) ---------
   [-1,1].forEach(function(side){
-    // Main spar
-    var spar=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.004,0.094), dark);
-    spar.position.set(0,-0.065,side*0.082); g.add(spar);
+    // Root deployment bracket
+    var rootBkt=new THREE.Mesh(new THREE.BoxGeometry(0.020,0.016,0.016), dark);
+    rootBkt.position.set(0,-0.072,side*0.082); g.add(rootBkt);
 
-    // 3-panel array (Dragon CRS has 3 panels per wing like the photo)
-    [0,1,2].forEach(function(pi){
-      var panW=0.076, panH=0.052, panD=0.0015;
-      var panZ=side*(0.135 + pi*0.060);
-      var panel=new THREE.Mesh(new THREE.BoxGeometry(panW,panD,panH), solar);
-      panel.position.set(0,-0.065,panZ); g.add(panel);
+    // Deploy spar (horizontal beam)
+    var spar=new THREE.Mesh(new THREE.BoxGeometry(0.004,0.004,0.110), dark);
+    spar.position.set(0,-0.072,side*0.140); g.add(spar);
 
-      // Solar cell grid (6x4 cells per panel)
-      for(var sr=0;sr<4;sr++){
-        for(var sc2=0;sc2<6;sc2++){
-          var cell2=new THREE.Mesh(new THREE.BoxGeometry(0.011,0.0022,0.011), solarCell);
-          cell2.position.set(-0.028+sc2*0.011,-0.065,-0.020+sr*0.011+panZ-panH/2+0.006);
-          g.add(cell2);
+    // 3 panels per wing (CRS Dragon has 3 sections clearly visible)
+    var panelOffsets = [0.098, 0.165, 0.232];
+    panelOffsets.forEach(function(pz,pi){
+      var pW=0.082, pH=0.001, pD=0.058;
+      // Solar panel face
+      var pan=new THREE.Mesh(new THREE.BoxGeometry(pW,pH,pD), solar);
+      pan.position.set(0,-0.072,side*pz); g.add(pan);
+
+      // Cell grid (6 columns x 4 rows)
+      var cols=6, rows=4;
+      for(var col=0;col<cols;col++){
+        for(var row=0;row<rows;row++){
+          var cell=new THREE.Mesh(
+            new THREE.BoxGeometry(pW/cols-0.001, pH+0.0008, pD/rows-0.001),
+            cellMat
+          );
+          cell.position.set(
+            -pW/2+pW/cols*(col+0.5),
+            -0.072+0.001,
+            side*(pz-pD/2+pD/rows*(row+0.5))
+          );
+          g.add(cell);
         }
       }
 
-      // Panel frame
-      var frm=new THREE.Mesh(new THREE.BoxGeometry(panW+0.003,0.003,panH+0.003), dark);
-      frm.position.set(0,-0.065,panZ); g.add(frm);
-
-      // Gold substrate patches
-      for(var gp2=0;gp2<3;gp2++){
-        var gpatch=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.0025,0.014), gold);
-        gpatch.position.set(-0.02+gp2*0.022,-0.065,panZ+0.010); g.add(gpatch);
+      // Gold substrate/connector pads (visible in CRS photo as bright squares)
+      var padCols=3, padRows=2;
+      for(var pc=0;pc<padCols;pc++){
+        for(var pr=0;pr<padRows;pr++){
+          var pad=new THREE.Mesh(new THREE.BoxGeometry(0.010,pH+0.0012,0.010), gold);
+          pad.position.set(
+            -pW/2+pW/(padCols)*pc+0.015,
+            -0.072+0.0015,
+            side*(pz-pD/2+pD/(padRows)*pr+0.015)
+          );
+          g.add(pad);
+        }
       }
+
+      // Inter-panel strut
+      if(pi<2){
+        var strut=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.002,0.014,4), silver);
+        strut.rotation.z=Math.PI/2;
+        strut.position.set(0,-0.072,side*(pz+0.034)); g.add(strut);
+      }
+
+      // Panel outline frame
+      var edgeMat=new THREE.LineBasicMaterial({color:0x445566,transparent:true,opacity:0.6});
+      var edgePts=[
+        new THREE.Vector3(-pW/2,-0.072+0.001,side*(pz-pD/2)),
+        new THREE.Vector3( pW/2,-0.072+0.001,side*(pz-pD/2)),
+        new THREE.Vector3( pW/2,-0.072+0.001,side*(pz+pD/2)),
+        new THREE.Vector3(-pW/2,-0.072+0.001,side*(pz+pD/2)),
+        new THREE.Vector3(-pW/2,-0.072+0.001,side*(pz-pD/2))
+      ];
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(edgePts), edgeMat));
     });
-
-    // Wing root attachment bracket
-    var brk=new THREE.Mesh(new THREE.BoxGeometry(0.018,0.025,0.012), dark);
-    brk.position.set(0,-0.065,side*0.068); g.add(brk);
   });
 
-  // === DRACO RCS QUADS (4 locations, 2 nozzles each) ===
-  [0,1,2,3].forEach(function(q){
-    var qa=q*Math.PI/2;
-    [-0.01,0.01].forEach(function(off){
-      var rnoz=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.005,0.010,6), black);
-      rnoz.rotation.x=Math.PI/2;
-      rnoz.position.set(Math.cos(qa)*0.061+off,-0.055,Math.sin(qa)*0.061); g.add(rnoz);
-    });
-  });
+  // -- ENGINE SECTION ---------------------------------------------------------
+  // Separation ring between trunk and adapter
+  var sepRing=new THREE.Mesh(new THREE.CylinderGeometry(0.068,0.068,0.006,18,1,true), silver);
+  sepRing.position.y=-0.138; g.add(sepRing);
 
-  // === ENGINE SECTION (base of trunk) ===
-  var engSection=new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.040,0.025,12), dark);
-  engSection.position.y=-0.130; g.add(engSection);
+  // Engine adapter (tapers inward)
+  var engAdapt=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.068,0.022,16), dark);
+  engAdapt.position.y=-0.152; g.add(engAdapt);
 
-  // 4 main Draco engines
-  [0,1,2,3].forEach(function(e){
-    var ea=e*Math.PI/2+Math.PI/4;
-    var enoz=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.012,0.020,8), black);
-    enoz.position.set(Math.cos(ea)*0.028,-0.145,Math.sin(ea)*0.028); g.add(enoz);
-  });
+  // 4 Draco main engines
+  for(var me=0;me<4;me++){
+    var meAng=(me/4)*Math.PI*2+Math.PI/4;
+    // Bell nozzle
+    var mNoz=new THREE.Mesh(new THREE.CylinderGeometry(0.007,0.014,0.024,8), vdark);
+    mNoz.position.set(Math.cos(meAng)*0.026,-0.172,Math.sin(meAng)*0.026); g.add(mNoz);
+    // Nozzle interior glow
+    var nInt=new THREE.Mesh(new THREE.CircleGeometry(0.007,8), new THREE.MeshBasicMaterial({color:0x0a0408}));
+    nInt.rotation.x=Math.PI/2;
+    nInt.position.set(Math.cos(meAng)*0.026,-0.185,Math.sin(meAng)*0.026); g.add(nInt);
+  }
 
-  // Separation interface ring
-  var sep=new THREE.Mesh(new THREE.CylinderGeometry(0.058,0.058,0.006,16,1,true), dark);
-  sep.position.y=-0.008; g.add(sep);
+  // Main plume (exhaust when burning)
+  var plume=new THREE.Mesh(new THREE.ConeGeometry(0.018,0.065,8), plumeM);
+  plume.position.y=-0.200; plume.userData.isPlume=true; g.add(plume);
 
-  // Main engine plume
-  var plume=new THREE.Mesh(new THREE.ConeGeometry(0.018,0.06,8), plumeM);
-  plume.position.y=-0.165; plume.userData.isPlume=true; g.add(plume);
-
-  // Burn glow (thruster plumes visible during burn)
-  var burnPt=new THREE.Mesh(new THREE.SphereGeometry(0.006,4,4), thrustM);
-  burnPt.position.y=-0.165; burnPt.userData.isBurn=true; g.add(burnPt);
-
-  // SPACEX text (simple embossed plate)
-  var badge=new THREE.Mesh(new THREE.BoxGeometry(0.040,0.006,0.012), hullDk);
-  badge.position.set(0.059,0.075,0); g.add(badge);
-
-  g.scale.setScalar(0.52);
+  // -- SCALE & RETURN ---------------------------------------------------------
+  g.scale.setScalar(0.18);
   return g;
 }
 
@@ -1004,9 +1045,9 @@ function rebuildObjects(){
       if(layers.orbits&&s.inc!==undefined){var opts=[],or=1+(s.alt||altDef)/6371,oi=s.inc*Math.PI/180,oran=(s.raan||0)*Math.PI/180;for(var oi2=0;oi2<=80;oi2++){var ou=(oi2/80)*Math.PI*2,ox=or*Math.cos(ou),oy=or*Math.sin(ou)*Math.cos(oi),oz=or*Math.sin(ou)*Math.sin(oi);opts.push(new THREE.Vector3(ox*Math.cos(oran)-oz*Math.sin(oran),oy,ox*Math.sin(oran)+oz*Math.cos(oran)));}objGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(opts),new THREE.LineBasicMaterial({color:color,transparent:true,opacity:0.12})));}
     });
   }
-  addSats('starlink',0x44ddff,2.2,550);
-  addSats('weather', 0x33ffaa,2.8,800);
-  addSats('gps',    0xffcc44,2.8,20200);
+  addSats('starlink',0x44ddff,0.35,550);
+  addSats('weather',0x33ffaa,0.45,800);
+  addSats('gps',0xffcc44,0.50,20200);
   // flights disabled
   if(layers.launches){launchSites.forEach(function(s){var m=buildLaunchMarker();m.position.copy(llv(s.lat,s.lon,1.003));orientSat(m,s.lat,s.lon);m.userData=Object.assign({},s,{type:'launch',alt:0});objGroup.add(m);allObjs.push(m);});}
   var total=data.starlink.length+data.weather.length+data.gps.length+data.flights.length+(data.iss.length?1:0);
@@ -1055,9 +1096,16 @@ document.getElementById('sel-close').onclick=function(){document.getElementById(
 
 // -- Controls ------------------------------------------------------------------
 var tt=document.getElementById('tt');
-var isDrag=false,prevX=0,prevY=0,rotX=0.3,rotY=0.5,zoom=2.8,autoRot=true;
-var moonCamTheta=0.0, moonCamPhi=0.3;  // 360 orbit angles for moon view
-var followDist=0.35;                     // follow cam distance (scroll to change)
+var isDrag=false,prevX=0,prevY=0,zoom=2.8,autoRot=true;
+// Earth orbital camera angles (camera orbits fixed Earth)
+var camTheta=0.5,  camPhi=0.3;    // theta=longitude, phi=latitude angle
+// Moon view camera
+var moonCamTheta=Math.PI*0.4, moonCamPhi=0.3;  // start on lit side of Moon
+// Follow/POV
+var followDist=0.55;
+var followTheta=0.0, followPhi=0.25;  // orbit angles around Dragon
+// Legacy rotX/rotY kept for objGroup tilt (satellites inertial frame)
+var rotX=0.3, rotY=0.5;
 canvas.addEventListener('mousedown',function(e){isDrag=true;autoRot=false;prevX=e.clientX;prevY=e.clientY;});
 window.addEventListener('mouseup',function(){isDrag=false;});
 canvas.addEventListener('mousemove',function(e){
@@ -1065,18 +1113,24 @@ canvas.addEventListener('mousemove',function(e){
     var dx=(e.clientX-prevX)*0.005, dy=(e.clientY-prevY)*0.005;
     prevX=e.clientX; prevY=e.clientY; tt.style.display='none';
     if(camMode==='moon'){
-      // Orbit camera around Moon freely in 360
       moonCamTheta -= dx;
       moonCamPhi = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, moonCamPhi - dy));
       return;
     }
-    if(camMode==='follow'||camMode==='pov'){
-      // Orbit view around the ship (look-around), not Earth
-      rotY += dx*0.6; rotX=Math.max(-1.4,Math.min(1.4,rotX+dy*0.6));
+    if(camMode==='follow'){
+      // Orbit camera freely around Dragon (ship-relative)
+      followTheta += dx * 1.5;  // positive = drag right rotates right
+      followPhi = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, followPhi - dy * 1.5));
       return;
     }
-    // Free/system: rotate Earth
-    rotY+=dx; rotX=Math.max(-1.4,Math.min(1.4,rotX+dy));
+    if(camMode==='pov'){
+      // POV: drag pans the cockpit view direction
+      camTheta -= dx*0.4; camPhi=Math.max(-1.4,Math.min(1.4,camPhi+dy*0.4));
+      return;
+    }
+    // FREE/SYSTEM: orbit camera around Earth
+    camTheta -= dx;
+    camPhi = Math.max(-Math.PI/2+0.02, Math.min(Math.PI/2-0.02, camPhi + dy));
     return;
   }
   var hit=getHit(e.clientX,e.clientY);
@@ -1091,9 +1145,8 @@ canvas.addEventListener('wheel',function(e){
   } else if(camMode==='follow'){
     followDist = Math.max(0.08, Math.min(4.0, followDist * (1 + d*0.001)));
   } else if(camMode==='moon'){
-    // zoom changes distance from moon surface
-    moonCamPhi = Math.max(-Math.PI/2+0.05, Math.min(Math.PI/2-0.05, moonCamPhi));
-    zoom = Math.max(1.15, Math.min(30, zoom * (1 + d*0.001)));
+    // scroll changes follow distance (how close to Moon surface)
+    followDist = Math.max(0.1, Math.min(3.0, followDist * (1 + d*0.001)));
   } else {
     zoom = Math.max(1.15, Math.min(30, zoom * (1 + d*0.001)));
   }
@@ -1156,9 +1209,12 @@ function setCamMode(mode) {
   });
   var cockpit = document.getElementById('cockpit');
   if(cockpit) cockpit.style.display = (mode==='pov') ? 'block' : 'none';
+  if(mode !== 'pov') spacecraft.visible = shipVisible; // restore visibility
   if(mode === 'free' || mode === 'follow' || mode === 'system') { cam.fov = 42; cam.updateProjectionMatrix(); }
+  if(mode === 'moon') { followDist = 0.55; }  // reset moon zoom on entry
+  if(mode === 'follow') { followTheta = 0; followPhi = 0.2; } // start behind ship
   if (mode === 'free') { autoRot = false; }
-  if (mode === 'system') { zoom = 18; }
+  if (mode === 'system') { zoom = 14; camPhi = 0.4; }
 }
 
 // -- Render loop ---------------------------------------------------------------
@@ -1166,32 +1222,46 @@ var tick=0;
 function animate(){
   requestAnimationFrame(animate); tick+=0.016;
   if(autoRot) rotY+=0.0012;
-  earthPivot.rotation.y=rotY; earthPivot.rotation.x=rotX;
-  // Satellites in inertial frame - fixed orientation, Earth spins under them
-  objGroup.rotation.x = rotX;
-  objGroup.rotation.y = 0;    // inertial - don't spin with Earth
+  // Earth stays fixed - auto rotate camera theta for autoRot
+  if(autoRot) camTheta += 0.0008;
+  // Earth pivot stays at 0 - only used for city lights alignment
+  earthPivot.rotation.y = 0; earthPivot.rotation.x = 0;
+  // Satellites: keep rotY for inertial offset, but don't spin
+  objGroup.rotation.x = 0;
+  objGroup.rotation.y = 0;
   // Camera mode logic
   if (camMode === 'free') {
-    cam.position.set(0, 0, zoom);
+    // Spherical orbital camera around Earth
+    var cx = zoom * Math.cos(camPhi) * Math.sin(camTheta);
+    var cy = zoom * Math.sin(camPhi);
+    var cz = zoom * Math.cos(camPhi) * Math.cos(camTheta);
+    cam.position.set(cx, cy, cz);
     cam.lookAt(0, 0, 0);
+    cam.fov = 42; cam.updateProjectionMatrix();
   } else if (camMode === 'follow') {
-    // Chase cam behind spacecraft
-    var shipFwd = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
-    var shipUp  = new THREE.Vector3(0,0,1).applyQuaternion(spacecraft.quaternion);
-    var shipRight = new THREE.Vector3(1,0,0).applyQuaternion(spacecraft.quaternion);
-    // Follow cam: scroll wheel changes followDist, drag changes view angle
-    var followPos = spacecraft.position.clone()
-      .sub(shipFwd.clone().multiplyScalar(followDist))
-      .add(shipUp.clone().multiplyScalar(followDist*0.3));
-    cam.position.lerp(followPos, 0.08);
+    // Free-orbit camera around Dragon using ship-local coordinates
+    // followTheta/followPhi orbit relative to ship's own orientation
+    var sFwd  = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
+    var sUp   = new THREE.Vector3(0,0,1).applyQuaternion(spacecraft.quaternion);
+    var sRight= new THREE.Vector3(1,0,0).applyQuaternion(spacecraft.quaternion);
+    // Convert spherical angles to local offset vector
+    var lx = followDist * Math.cos(followPhi) * Math.sin(followTheta);
+    var ly = followDist * Math.sin(followPhi);
+    var lz = -followDist * Math.cos(followPhi) * Math.cos(followTheta);
+    // Transform to world space
+    var wOffset = sRight.clone().multiplyScalar(lx)
+                  .add(sUp.clone().multiplyScalar(ly))
+                  .add(sFwd.clone().multiplyScalar(lz));
+    var tPos = spacecraft.position.clone().add(wOffset);
+    cam.position.lerp(tPos, 0.18);
     cam.lookAt(spacecraft.position);
     cam.fov = 50; cam.updateProjectionMatrix();
   } else if (camMode === 'pov') {
-    // First-person cockpit - camera at nose of Dragon, looking forward
-    var shipFwdP   = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
-    var shipRightP = new THREE.Vector3(1,0,0).applyQuaternion(spacecraft.quaternion);
-    var shipUpP    = new THREE.Vector3(0,0,1).applyQuaternion(spacecraft.quaternion);
-    cam.position.copy(spacecraft.position).add(shipFwdP.clone().multiplyScalar(0.06));
+    // Hide Dragon so it doesn't occlude the view
+    spacecraft.visible = false;
+    var shipFwdP = new THREE.Vector3(0,1,0).applyQuaternion(spacecraft.quaternion);
+    // Camera at nose tip, looking toward target
+    cam.position.copy(spacecraft.position).add(shipFwdP.clone().multiplyScalar(0.10));
     cam.fov = Math.min(110, Math.max(8, 42 * povZoom)); cam.updateProjectionMatrix();
     var distE = spacecraft.position.length();
     var distM = spacecraft.position.distanceTo(moonMesh.position);
@@ -1200,7 +1270,7 @@ function animate(){
     updateHUD(distE, distM, shipFwdP);
   } else if (camMode === 'moon') {
     // Full 360 orbital camera around Moon ' drag to look around
-    var moonRadius = 1.8; // distance from moon centre
+    var moonRadius = Math.max(0.4, followDist * 2.5 + 0.5); // zoomable moon orbit
     // Spherical coordinates from drag angles
     var mx = moonMesh.position.x + moonRadius * Math.cos(moonCamPhi) * Math.sin(moonCamTheta);
     var my = moonMesh.position.y + moonRadius * Math.sin(moonCamPhi);
@@ -1209,17 +1279,20 @@ function animate(){
     cam.lookAt(moonMesh.position);
     cam.fov = 35; cam.updateProjectionMatrix();
   } else if (camMode === 'system') {
-    // Wide view of full Earth-Moon system
-    cam.position.set(0, 3, zoom);
-    cam.lookAt(moonMesh.position.clone().multiplyScalar(0.5));
+    // Wide orbital view of full system
+    var sx = zoom * Math.cos(camPhi*0.5) * Math.sin(camTheta);
+    var sy = zoom * Math.sin(camPhi*0.5) + 2;
+    var sz = zoom * Math.cos(camPhi*0.5) * Math.cos(camTheta);
+    cam.position.set(sx, sy, sz);
+    cam.lookAt(moonMesh.position.clone().multiplyScalar(0.3));
+    cam.fov = 55; cam.updateProjectionMatrix();
   }
 
   objGroup.children.forEach(function(o){
     if(o.userData&&o.userData.isRing){o.material.opacity=0.18+0.18*Math.sin(tick*2.5);o.lookAt(cam.position);}
-    // Scale satellites: fixed visual size, slight zoom adaptation
+    // Satellites: fixed scale, no zoom adaptation
     if(o.userData&&o.userData.baseScale){
-      var adaptScale = o.userData.baseScale * Math.max(0.6, Math.min(1.8, zoom*0.5));
-      o.scale.setScalar(adaptScale);
+      o.scale.setScalar(o.userData.baseScale);
     }
   });
 

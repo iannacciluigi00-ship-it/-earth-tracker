@@ -349,6 +349,7 @@ canvas{display:block;cursor:crosshair;}
 <script>
 var MOON_RAD_PER_SEC  = (2 * Math.PI) / (27.3 * 86400);
 var SHIP_RAD_PER_SEC  = (2 * Math.PI) / (6.0 * 86400);
+var SOLAR_RAD_PER_SEC = (2 * Math.PI) / (365.25 * 86400); // Earth orbital angular velocity
 var timeWarp = 60;
 var simPaused = false;
 var API_KEY = 'PJ8FX8-5659ZM-GHAAYJ-5QSS';
@@ -360,7 +361,7 @@ var renderer = new THREE.WebGLRenderer({canvas:canvas, antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x010409);
 var scene = new THREE.Scene();
-var cam   = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.005, 2000);
+var cam   = new THREE.PerspectiveCamera(42, innerWidth/innerHeight, 0.005, 5000);
 cam.position.z = 2.8;
 function onResize(){ renderer.setSize(innerWidth,innerHeight); cam.aspect=innerWidth/innerHeight; cam.updateProjectionMatrix(); }
 onResize(); window.addEventListener('resize',onResize);
@@ -827,6 +828,111 @@ scene.add(trajLine);
 var burnGlow = new THREE.PointLight(0xff6600, 0, 0.5);
 scene.add(burnGlow);
 
+// ============================================================
+// SOLAR SYSTEM
+// Scale: 1 AU = 40 scene units.
+// Orbital periods, semi-major axes and inclinations are accurate.
+// [SIM] = planet display radius is exaggerated for visibility.
+// ============================================================
+var SOLAR_AU = 40; // scene units per astronomical unit
+
+// Geocentric angle of Sun (Earth at origin, Sun revolves each year)
+var solarAngle = 0.5;
+
+// Planet data: a = semi-major axis (AU), T = orbital period (yr),
+// inc = orbital inclination (deg, relative to ecliptic),
+// r = display radius [SIM exaggerated], color, angle = current heliocentric angle
+var PLANET_DATA = [
+  {name:'Mercury', a:0.387,   T:0.2409,  inc:7.00, r:0.18, color:0x9a9080, angle:0.80},
+  {name:'Venus',   a:0.723,   T:0.6152,  inc:3.39, r:0.30, color:0xe8d090, angle:2.10},
+  {name:'Mars',    a:1.524,   T:1.8808,  inc:1.85, r:0.20, color:0xb04020, angle:4.20},
+  {name:'Jupiter', a:5.203,   T:11.862,  inc:1.30, r:1.10, color:0xd0a060, angle:1.00},
+  {name:'Saturn',  a:9.537,   T:29.457,  inc:2.49, r:0.90, color:0xd8c080, angle:5.50},
+  {name:'Uranus',  a:19.191,  T:84.01,   inc:0.77, r:0.55, color:0x80d8e8, angle:3.30},
+  {name:'Neptune', a:30.069,  T:164.8,   inc:1.77, r:0.52, color:0x4060d8, angle:2.70}
+];
+
+// Sun sphere [SIM: radius ~2.5 units; real = 109 Earth radii]
+var sunSphere = new THREE.Mesh(
+  new THREE.SphereGeometry(2.5, 32, 32),
+  new THREE.MeshBasicMaterial({color:0xfff8e0})
+);
+scene.add(sunSphere);
+
+// Sun corona glow
+var sunHalo = new THREE.Mesh(
+  new THREE.SphereGeometry(3.8, 16, 16),
+  new THREE.MeshBasicMaterial({color:0xffaa22, transparent:true, opacity:0.10, side:THREE.BackSide})
+);
+scene.add(sunHalo);
+
+// Sun as point light  (range covers all planets through Neptune)
+var sunPointLight = new THREE.PointLight(0xfff8f0, 1.0, 2500, 1.2);
+scene.add(sunPointLight);
+
+// Planet meshes
+var planetMeshes = [];
+PLANET_DATA.forEach(function(p) {
+  var mat = new THREE.MeshPhongMaterial({
+    color: p.color,
+    shininess: 35,
+    emissive: new THREE.Color(p.color).multiplyScalar(0.04)
+  });
+  var mesh = new THREE.Mesh(new THREE.SphereGeometry(p.r, 20, 20), mat);
+  mesh.userData = {type:'planet', name:p.name, a:p.a};
+  scene.add(mesh);
+  planetMeshes.push(mesh);
+});
+
+// Saturn rings [SIM: gap ratio approximate; tilt = 26.7 deg]
+var satRingMesh = new THREE.Mesh(
+  new THREE.RingGeometry(1.30, 2.40, 72),
+  new THREE.MeshBasicMaterial({color:0xc8a868, transparent:true, opacity:0.55, side:THREE.DoubleSide})
+);
+satRingMesh.rotation.x = Math.PI / 2 - 0.467; // ~26.7 deg axial tilt
+scene.add(satRingMesh);
+
+// Planet orbit trails (in Sun-centred coordinates, translated each frame)
+var planetOrbitLines = [];
+PLANET_DATA.forEach(function(p) {
+  var incRad = p.inc * Math.PI / 180;
+  var pts = [];
+  for (var oi = 0; oi <= 128; oi++) {
+    var oa = (oi / 128) * Math.PI * 2;
+    var od = p.a * SOLAR_AU;
+    pts.push(new THREE.Vector3(
+      od * Math.cos(oa),
+      od * Math.sin(oa) * Math.sin(incRad),
+      od * Math.sin(oa) * Math.cos(incRad)
+    ));
+  }
+  var orbitLine = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:p.color, transparent:true, opacity:0.18})
+  );
+  scene.add(orbitLine);
+  planetOrbitLines.push(orbitLine);
+});
+
+// Earth orbit trail (centred on Sun, shows Earth's path)
+(function() {
+  var ePts = [];
+  for (var ei = 0; ei <= 128; ei++) {
+    var ea = (ei / 128) * Math.PI * 2;
+    ePts.push(new THREE.Vector3(SOLAR_AU * Math.cos(ea), 0, SOLAR_AU * Math.sin(ea)));
+  }
+  var eOrbit = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints(ePts),
+    new THREE.LineBasicMaterial({color:0x4488ff, transparent:true, opacity:0.18})
+  );
+  scene.add(eOrbit);
+  // Keep reference to move with Sun
+  scene._earthOrbitLine = eOrbit;
+})();
+// ============================================================
+// END SOLAR SYSTEM INIT
+// ============================================================
+
 // Layer visibility controls
 var moonVisible = true, shipVisible = true;
 var origToggleLayer = window.toggleLayer;
@@ -1148,7 +1254,7 @@ canvas.addEventListener('wheel',function(e){
     // scroll changes follow distance (how close to Moon surface)
     followDist = Math.max(0.1, Math.min(3.0, followDist * (1 + d*0.001)));
   } else {
-    zoom = Math.max(1.15, Math.min(30, zoom * (1 + d*0.001)));
+    zoom = Math.max(1.15, Math.min(3000, zoom * (1 + d*0.001)));
   }
   e.preventDefault();
 },{passive:false});
@@ -1214,7 +1320,7 @@ function setCamMode(mode) {
   if(mode === 'moon') { followDist = 0.55; }  // reset moon zoom on entry
   if(mode === 'follow') { followTheta = 0; followPhi = 0.2; } // start behind ship
   if (mode === 'free') { autoRot = false; }
-  if (mode === 'system') { zoom = 14; camPhi = 0.4; }
+  if (mode === 'system') { zoom = 300; camPhi = 0.35; }
 }
 
 // -- Render loop ---------------------------------------------------------------
@@ -1279,13 +1385,15 @@ function animate(){
     cam.lookAt(moonMesh.position);
     cam.fov = 35; cam.updateProjectionMatrix();
   } else if (camMode === 'system') {
-    // Wide orbital view of full system
+    // Wide solar system view - drag orbits, scroll zooms
     var sx = zoom * Math.cos(camPhi*0.5) * Math.sin(camTheta);
-    var sy = zoom * Math.sin(camPhi*0.5) + 2;
+    var sy = zoom * Math.sin(camPhi*0.5) + zoom * 0.04;
     var sz = zoom * Math.cos(camPhi*0.5) * Math.cos(camTheta);
     cam.position.set(sx, sy, sz);
-    cam.lookAt(moonMesh.position.clone().multiplyScalar(0.3));
-    cam.fov = 55; cam.updateProjectionMatrix();
+    // Look at midpoint between Earth (origin) and Sun
+    var sysLook = sunSphere.position.clone().multiplyScalar(0.25);
+    cam.lookAt(sysLook);
+    cam.fov = 60; cam.updateProjectionMatrix();
   }
 
   objGroup.children.forEach(function(o){
@@ -1307,6 +1415,60 @@ function animate(){
   moonRing.position.copy(mPos);
   moonRing.lookAt(cam.position);
   moonRing.material.opacity = 0.25 + 0.15 * Math.sin(tick);
+
+  // ============================================================
+  // SOLAR SYSTEM UPDATE
+  // ============================================================
+  if (!simPaused) {
+    solarAngle += SOLAR_RAD_PER_SEC / 60 * timeWarp;
+    for (var spi = 0; spi < PLANET_DATA.length; spi++) {
+      var spOmega = (2 * Math.PI) / (PLANET_DATA[spi].T * 365.25 * 86400);
+      PLANET_DATA[spi].angle += spOmega / 60 * timeWarp;
+    }
+  }
+
+  // Sun geocentric position: Earth at origin, Sun orbits each year
+  var sunGX = SOLAR_AU * Math.cos(solarAngle);
+  var sunGZ = SOLAR_AU * Math.sin(solarAngle);
+  sunSphere.position.set(sunGX, 0, sunGZ);
+  sunHalo.position.copy(sunSphere.position);
+  sunPointLight.position.copy(sunSphere.position);
+
+  // Update directional sun light to match actual Sun direction
+  // DirectionalLight shines from position toward origin
+  sun.position.set(sunGX, 0, sunGZ);
+
+  // Show solar system objects in SYSTEM mode or when zoomed well out
+  var solarVis = (camMode === 'system' || zoom > 55);
+  sunSphere.visible = solarVis;
+  sunHalo.visible   = solarVis;
+  satRingMesh.visible = false; // set below per Saturn
+
+  for (var spj = 0; spj < PLANET_DATA.length; spj++) {
+    var spd = PLANET_DATA[spj];
+    var spInc = spd.inc * Math.PI / 180;
+    var spR   = spd.a * SOLAR_AU;
+    var spPx  = sunGX + spR * Math.cos(spd.angle);
+    var spPy  =         spR * Math.sin(spd.angle) * Math.sin(spInc);
+    var spPz  = sunGZ + spR * Math.sin(spd.angle) * Math.cos(spInc);
+    planetMeshes[spj].position.set(spPx, spPy, spPz);
+    planetMeshes[spj].visible = solarVis;
+    // Orbit trail follows Sun position
+    planetOrbitLines[spj].position.set(sunGX, 0, sunGZ);
+    planetOrbitLines[spj].visible = solarVis;
+    if (spd.name === 'Saturn') {
+      satRingMesh.position.set(spPx, spPy, spPz);
+      satRingMesh.visible = solarVis;
+    }
+  }
+  // Earth orbit trail centred on Sun
+  if (scene._earthOrbitLine) {
+    scene._earthOrbitLine.position.set(sunGX, 0, sunGZ);
+    scene._earthOrbitLine.visible = solarVis;
+  }
+  // ============================================================
+  // END SOLAR SYSTEM UPDATE
+  // ============================================================
 
   // -- Animate spacecraft on free-return trajectory
   if (!simPaused) {
